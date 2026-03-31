@@ -1,0 +1,73 @@
+name: yatra_app
+description: "Temple Yatra - Android application with Google Maps integration for temple pilgrimages"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Google Maps - For route visualization and navigation
+  google_maps_flutter: ^2.6.1
+  google_maps_flutter_web: ^0.5.6
+  
+  # Environment variables for API keys
+  flutter_dotenv: ^5.1.0
+  
+  # HTTP requests for Directions API
+  http: ^1.2.0
+  
+  # State management
+  riverpod: ^2.4.0
+  flutter_riverpod: ^2.4.0
+  riverpod_annotation: ^2.3.0
+  
+  # JSON serialization
+  json_annotation: ^4.8.1
+  build_runner: ^2.4.6
+  
+  # Location services
+  geolocator: ^11.0.0
+  
+  # Image loading
+  cached_network_image: ^3.3.0
+  
+  # URL launcher
+  url_launcher: ^6.2.0
+  
+  # For TTS voice guidance
+  flutter_tts: ^3.8.0
+  
+  # UI utilities
+  flutter_animate: ^4.2.0
+  google_fonts: ^6.1.0
+  
+  # Date formatting
+  intl: ^0.19.0
+
+  # PDF generation
+  pdf: ^3.10.8
+
+  # Native share sheet
+  share_plus: ^10.0.0
+
+  # Device file paths
+  path_provider: ^2.1.2
+  
+  # The following adds the Cupertino Icons font
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  json_serializable: ^6.7.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
