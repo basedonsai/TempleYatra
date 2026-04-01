@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../models/temple_model.dart';
+import '../models/festival_event.dart';
+import '../database/db_providers.dart';
 import 'yatra_planner_screen.dart';
 import 'temple_detail_screen.dart';
 import 'community_screen.dart';
 import 'offline_pack_manager_screen.dart';
-import '../data/temples_data.dart';
 import 'temple_list_screen.dart';
 import 'chatbot_screen.dart';
+import 'temple_calendar_screen.dart';
+import 'profile_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -61,6 +65,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final gridChildAspectRatio = isWebDesktop ? 1.2 : (isWebTablet ? 1.3 : 1.1);
     final featuredCardWidth = isWebDesktop ? 280.0 : (isWebTablet ? 220.0 : (isSmallScreen ? 150.0 : 170.0));
     final iconSize = isSmallScreen ? 28.0 : (isWebDesktop ? 36.0 : 32.0);
+
+    final templesAsync = ref.watch(allTemplesDbProvider);
 
     return Scaffold(
       backgroundColor: kIsWeb ? AppTheme.webBackground : AppTheme.lightBeige,
@@ -123,6 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           gridCrossCount,
                           gridChildAspectRatio,
                           iconSize,
+                          templesAsync,
                         ),
                         SizedBox(height: isWebDesktop ? 48.0 : 24.0),
                         
@@ -131,11 +138,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           isSmallScreen,
                           isWebDesktop,
                           featuredCardWidth,
+                          templesAsync,
                         ),
                         SizedBox(height: isWebDesktop ? 48.0 : 24.0),
                         
                         // Upcoming Festivals
-                        _buildFestivalsSection(isSmallScreen),
+                        _buildFestivalsSection(isSmallScreen, templesAsync),
                         SizedBox(height: isWebDesktop ? 48.0 : 24.0),
                         
                         // Quick Stats (web only)
@@ -159,11 +167,24 @@ class _HomeScreenState extends State<HomeScreen> {
           : NavigationBar(
               selectedIndex: 0,
               onDestinationSelected: (index) {
-                if (index == 2) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CommunityScreen()),
-                  );
+                switch (index) {
+                  case 1:
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TempleListScreen()),
+                    );
+                  case 2:
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CommunityScreen()),
+                    );
+                  case 3:
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  default:
+                    break;
                 }
               },
               destinations: const [
@@ -255,7 +276,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: TextButton(
-        onPressed: () {},
+        onPressed: () {
+          switch (title) {
+            case 'Explore':
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TempleListScreen()));
+            case 'Plan Yatra':
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const YatraPlannerScreen()));
+            case 'Community':
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CommunityScreen()));
+            default:
+              break;
+          }
+        },
         style: TextButton.styleFrom(
           foregroundColor: isActive ? AppTheme.saffron : Colors.white70,
         ),
@@ -346,6 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
     int gridCrossCount,
     double gridChildAspectRatio,
     double iconSize,
+    AsyncValue<List<Temple>> templesAsync,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,7 +395,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TempleListScreen()),
+              ),
               child: const Text('View All'),
             ),
           ],
@@ -422,7 +458,22 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: 'Upcoming events',
               color: const Color(0xFFE91E63),
               iconSize: iconSize,
-              onTap: () {},
+              onTap: () {
+                final firstTemple = templesAsync.valueOrNull?.firstOrNull;
+                if (firstTemple != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TempleCalendarScreen(temple: firstTemple),
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TempleListScreen()),
+                  );
+                }
+              },
             ),
           ],
         ),
@@ -434,6 +485,7 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isSmallScreen,
     bool isWebDesktop,
     double featuredCardWidth,
+    AsyncValue<List<Temple>> templesAsync,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,7 +502,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TempleListScreen()),
+              ),
               child: const Text('View All'),
             ),
           ],
@@ -459,39 +514,40 @@ class _HomeScreenState extends State<HomeScreen> {
         
         SizedBox(
           height: isWebDesktop ? 280.0 : (isSmallScreen ? 160.0 : 200.0),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: allTemples.length,
-            itemBuilder: (context, index) {
-              final temple = allTemples[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: _FeaturedCard(
-                  width: featuredCardWidth,
-                  temple: temple,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TempleDetailScreen(temple: temple),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
+          child: templesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error: $err')),
+            data: (temples) => ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: temples.length,
+              itemBuilder: (context, index) {
+                final temple = temples[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: _FeaturedCard(
+                    width: featuredCardWidth,
+                    temple: temple,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TempleDetailScreen(temple: temple),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFestivalsSection(bool isSmallScreen) {
-    final festivals = [
-      {'name': 'Maha Shivaratri', 'date': 'March 8, 2024', 'color': AppTheme.maroon},
-      {'name': 'Navaratri', 'date': 'October 15, 2024', 'color': AppTheme.saffron},
-      {'name': 'Diwali', 'date': 'November 1, 2024', 'color': AppTheme.templeGold},
-    ];
+  Widget _buildFestivalsSection(bool isSmallScreen, AsyncValue<List<Temple>> templesAsync) {
+    final festivalsAsync = ref.watch(upcomingFestivalsDbProvider(3));
+    final temples = templesAsync.valueOrNull ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,26 +564,60 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                final firstTemple = templesAsync.valueOrNull?.firstOrNull;
+                if (firstTemple != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TempleCalendarScreen(temple: firstTemple),
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TempleListScreen()),
+                  );
+                }
+              },
               child: const Text('View All'),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: festivals.length,
-          itemBuilder: (context, index) {
-            final festival = festivals[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _FestivalCard(
-                name: festival['name'] as String,
-                date: festival['date'] as String,
-                color: festival['color'] as Color,
-              ),
+        festivalsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (display) {
+            if (display.isEmpty) {
+              return const Text('No upcoming festivals found.');
+            }
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: display.length,
+              itemBuilder: (context, index) {
+                final festival = display[index];
+                // Find the temple for this festival to enable navigation
+                final temple = temples.where((t) => t.id == festival.templeId).firstOrNull
+                    ?? temples.firstOrNull;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _FestivalCard(
+                    event: festival,
+                    onTap: () {
+                      if (temple != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TempleCalendarScreen(temple: temple),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                );
+              },
             );
           },
         ),
@@ -873,18 +963,20 @@ class _FeaturedCard extends StatelessWidget {
 }
 
 class _FestivalCard extends StatelessWidget {
-  final String name;
-  final String date;
-  final Color color;
+  final FestivalEvent event;
+  final VoidCallback onTap;
 
-  const _FestivalCard({
-    required this.name,
-    required this.date,
-    required this.color,
-  });
+  const _FestivalCard({required this.event, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    // Pick a color based on crowd level
+    final color = switch (event.crowdHint) {
+      CrowdLevel.high => AppTheme.maroon,
+      CrowdLevel.moderate => AppTheme.saffron,
+      CrowdLevel.low => AppTheme.templeGold,
+    };
+
     return Card(
       margin: EdgeInsets.zero,
       elevation: kIsWeb ? 0 : 1,
@@ -893,55 +985,59 @@ class _FestivalCard extends StatelessWidget {
         side: const BorderSide(color: AppTheme.borderColor),
       ),
       color: AppTheme.cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.celebration, color: color, size: 24),
               ),
-              child: Icon(
-                Icons.celebration,
-                color: color,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatDate(event.date),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: AppTheme.textSecondary.withValues(alpha: 0.5),
-            ),
-          ],
+              const Icon(Icons.chevron_right, color: AppTheme.textSecondary, size: 18),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }

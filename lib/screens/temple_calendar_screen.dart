@@ -3,11 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/temple_model.dart';
-import '../models/festival_event.dart';
 import '../providers/festival_provider.dart';
 import '../services/crowd_engine.dart';
 import '../widgets/crowd_badge.dart';
-import '../data/festival_data.dart';
 
 class TempleCalendarScreen extends ConsumerWidget {
   final Temple temple;
@@ -43,7 +41,7 @@ class TempleCalendarScreen extends ConsumerWidget {
                 return ListTile(
                   leading: CrowdBadge(
                     level: computeCrowdLevel(
-                        temple.id, event.date, allFestivalEvents),
+                        temple.id, event.date, allEvents),
                   ),
                   title: Text(event.name),
                   subtitle:

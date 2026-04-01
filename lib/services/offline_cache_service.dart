@@ -4,6 +4,7 @@ library;
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/cultural_content.dart';
 import '../data/cultural_content_data.dart';
 
@@ -277,14 +278,16 @@ class OfflineCacheService {
 
   /// Get cache file
   Future<File> _getCacheFile(String key) async {
-    // Use app's cache directory
-    final cachePath = Directory.systemTemp.path;
-    final dir = Directory('$cachePath/$_cacheDir');
-    
+    // Use persistent app documents directory (survives app restarts)
+    final appDir = kIsWeb
+        ? Directory.systemTemp
+        : await getApplicationDocumentsDirectory();
+    final dir = Directory('${appDir.path}/$_cacheDir');
+
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    
+
     return File('${dir.path}/$key.txt');
   }
 }

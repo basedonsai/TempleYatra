@@ -2,16 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
-import '../data/temples_data.dart';
 import '../models/temple_model.dart';
 import '../services/itinerary_generator.dart';
 import '../services/crowd_engine.dart';
 import '../providers/festival_provider.dart';
 import '../widgets/crowd_badge.dart';
+import '../database/db_providers.dart';
 import 'route_planner_screen.dart';
 
 class YatraPlannerScreen extends ConsumerStatefulWidget {
-  const YatraPlannerScreen({super.key});
+  final Temple? preselectedTemple;
+  const YatraPlannerScreen({super.key, this.preselectedTemple});
 
   @override
   ConsumerState<YatraPlannerScreen> createState() => _YatraPlannerScreenState();
@@ -22,10 +23,7 @@ class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
   
   // Use actual Temple objects instead of String names
   final List<Temple> _selectedTemples = [];
-  
-  // Use all temples from database instead of hardcoded strings
-  final List<Temple> _availableTemples = allTemples;
-  
+
   // Constraints
   DateTime? _startDate;
   DateTime? _endDate;
@@ -35,7 +33,17 @@ class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
   int _templesPerDay = 3;
 
   @override
+  void initState() {
+    super.initState();
+    // Pre-select temple if passed from TempleDetailScreen
+    if (widget.preselectedTemple != null) {
+      _selectedTemples.add(widget.preselectedTemple!);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final templesAsync = ref.watch(allTemplesDbProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Plan Your Yatra'),
@@ -81,56 +89,58 @@ class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
               const SizedBox(height: 12),
               
               // Temple selection chips
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _availableTemples.map((temple) {
-                  final isSelected = _selectedTemples.contains(temple);
-                  return FilterChip(
-                    label: Text(temple.name),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedTemples.add(temple);
-                        } else {
-                          _selectedTemples.remove(temple);
-                        }
-                      });
-                    },
-                    selectedColor: AppTheme.saffron.withValues(alpha: 0.3),
-                    checkmarkColor: AppTheme.maroon,
-                    avatar: Consumer(builder: (context, ref, _) {
-                      final events = ref.watch(templeFestivalsProvider(temple.id));
-                      final level = computeCrowdLevel(
-                        temple.id,
-                        _startDate ?? DateTime.now(),
-                        events,
-                      );
-                      return CrowdBadge(level: level, compact: true);
-                    }),
-                  );
-                }).toList(),
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Quick actions
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => _selectAllTemples(),
-                    child: const Text('Select All'),
-                  ),
-                  TextButton(
-                    onPressed: () => _clearSelection(),
-                    child: const Text('Clear All'),
-                  ),
-                  TextButton(
-                    onPressed: () => _selectTopRated(),
-                    child: const Text('Top Rated'),
-                  ),
-                ],
+              templesAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Text('Error loading temples: $e'),
+                data: (availableTemples) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: availableTemples.map((temple) {
+                        final isSelected = _selectedTemples.contains(temple);
+                        return FilterChip(
+                          label: Text(temple.name),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedTemples.add(temple);
+                              } else {
+                                _selectedTemples.remove(temple);
+                              }
+                            });
+                          },
+                          selectedColor: AppTheme.saffron.withValues(alpha: 0.3),
+                          checkmarkColor: AppTheme.maroon,
+                          avatar: _TempleCrowdAvatar(
+                            templeId: temple.id,
+                            date: _startDate ?? DateTime.now(),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    // Quick actions
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => _selectAllTemples(availableTemples),
+                          child: const Text('Select All'),
+                        ),
+                        TextButton(
+                          onPressed: () => _clearSelection(),
+                          child: const Text('Clear All'),
+                        ),
+                        TextButton(
+                          onPressed: () => _selectTopRated(availableTemples),
+                          child: const Text('Top Rated'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               
               const SizedBox(height: 32),
@@ -347,10 +357,10 @@ class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
     }
   }
 
-  void _selectAllTemples() {
+  void _selectAllTemples(List<Temple> availableTemples) {
     setState(() {
       _selectedTemples.clear();
-      _selectedTemples.addAll(_availableTemples);
+      _selectedTemples.addAll(availableTemples);
     });
   }
 
@@ -360,10 +370,10 @@ class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
     });
   }
 
-  void _selectTopRated() {
+  void _selectTopRated(List<Temple> availableTemples) {
     setState(() {
       _selectedTemples.clear();
-      final sorted = List<Temple>.from(_availableTemples)
+      final sorted = List<Temple>.from(availableTemples)
         ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
       _selectedTemples.addAll(sorted.take(5));
     });
@@ -421,5 +431,20 @@ class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Isolated ConsumerWidget for crowd avatar — only this rebuilds on festival changes,
+/// not the entire temple chip Wrap.
+class _TempleCrowdAvatar extends ConsumerWidget {
+  final String templeId;
+  final DateTime date;
+  const _TempleCrowdAvatar({required this.templeId, required this.date});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(templeFestivalsProvider(templeId));
+    final level = computeCrowdLevel(templeId, date, events);
+    return CrowdBadge(level: level, compact: true);
   }
 }

@@ -11,6 +11,7 @@ import '../widgets/crowd_badge.dart';
 import 'storytelling_screen.dart';
 import 'chatbot_screen.dart';
 import 'temple_calendar_screen.dart';
+import 'yatra_planner_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/audio_pack_section.dart';
 
@@ -352,12 +353,11 @@ class TempleDetailScreen extends StatelessWidget {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Added ${temple.name} to your yatra'),
-                                  action: SnackBarAction(
-                                    label: 'View',
-                                    onPressed: () {},
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => YatraPlannerScreen(
+                                    preselectedTemple: temple,
                                   ),
                                 ),
                               );

@@ -73,13 +73,17 @@ class AudioPackNotifier extends AsyncNotifier<List<AudioPack>> {
     final token = CancellationToken();
     _tokens[packId] = token;
 
-    // Kick off download; update state on every progress tick.
+    // Kick off download; throttle UI updates to avoid rebuilding on every byte tick.
+    DateTime _lastUpdate = DateTime.now();
     await service.downloadPack(
       packId,
       (progress) {
-        // Update state with current progress so UI sees live updates.
-        final updated = service.packs;
-        state = AsyncData(updated);
+        final now = DateTime.now();
+        // Update at most ~10 times/sec (every 100ms) to avoid excessive rebuilds
+        if (now.difference(_lastUpdate).inMilliseconds >= 100 || progress >= 1.0) {
+          _lastUpdate = now;
+          state = AsyncData(service.packs);
+        }
       },
       token,
     );
@@ -145,11 +149,10 @@ final packForTempleProvider = Provider.family<AudioPack?, String>(
     final asyncPacks = ref.watch(audioPackProvider);
     return asyncPacks.whenOrNull(
       data: (packs) {
-        try {
-          return packs.firstWhere((p) => p.templeId == templeId);
-        } catch (_) {
-          return null;
+        for (final p in packs) {
+          if (p.templeId == templeId) return p;
         }
+        return null;
       },
     );
   },

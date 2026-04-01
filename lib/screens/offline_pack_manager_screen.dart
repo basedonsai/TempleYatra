@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../database/db_providers.dart';
 import '../models/audio_pack.dart';
+import '../models/temple_model.dart';
 import '../providers/audio_pack_provider.dart';
 import '../theme/app_theme.dart';
+import 'storytelling_screen.dart';
 
 /// Converts a snake_case templeId to a readable title-cased name.
 /// e.g. 'chilkur_balaji' -> 'Chilkur Balaji'
@@ -106,6 +109,9 @@ class _AudioPackCard extends ConsumerWidget {
     final notifier = ref.read(audioPackProvider.notifier);
     final sizeMb = pack.totalSizeBytes / (1024 * 1024);
 
+    final templesAsync = ref.watch(allTemplesDbProvider);
+    final temples = templesAsync.valueOrNull ?? [];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -150,14 +156,14 @@ class _AudioPackCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             // State-appropriate controls
-            _buildControls(context, notifier),
+            _buildControls(context, notifier, temples),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildControls(BuildContext context, AudioPackNotifier notifier) {
+  Widget _buildControls(BuildContext context, AudioPackNotifier notifier, List<Temple> temples) {
     switch (pack.downloadState) {
       case DownloadState.notDownloaded:
         return ElevatedButton.icon(
@@ -202,9 +208,17 @@ class _AudioPackCard extends ConsumerWidget {
           children: [
             ElevatedButton.icon(
               onPressed: () {
-                // Navigate to StorytellingScreen (integration handled in task 8)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening audio player...')),
+                final temple = temples.isEmpty
+                    ? null
+                    : temples.where((t) => t.id == pack.templeId).firstOrNull;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StorytellingScreen(
+                      templeId: pack.templeId,
+                      temple: temple,
+                    ),
+                  ),
                 );
               },
               icon: const Icon(Icons.play_arrow),

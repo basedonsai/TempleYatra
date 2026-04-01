@@ -69,24 +69,16 @@ class RAGService {
   static List<ContentChunk> _buildKnowledgeBase() {
     final chunks = <ContentChunk>[];
 
-    // Process content for each temple
-    final temples = ['chilkur-balaji', 'jagannath-puri', 'srisailam'];
-
-    for (final templeId in temples) {
-      for (final type in ContentType.values) {
-        final contentList = getContentByType(templeId, type);
-        for (final content in contentList) {
-          final chunk = ContentChunk(
-            id: '${templeId}_${type}_${content.language}',
-            content: content.content,
-            templeId: templeId,
-            contentType: type.toString().split('.').last,
-            language: content.language,
-            relevanceScore: 1.0,
-          );
-          chunks.add(chunk);
-        }
-      }
+    // Use ALL content from the knowledge base — no hardcoded temple list
+    for (final content in allCulturalContent) {
+      chunks.add(ContentChunk(
+        id: '${content.templeId}_${content.type.toString().split('.').last}_${content.language}',
+        content: content.content,
+        templeId: content.templeId,
+        contentType: content.type.toString().split('.').last,
+        language: content.language,
+        relevanceScore: 1.0,
+      ));
     }
 
     return chunks;
@@ -97,24 +89,24 @@ class RAGService {
     required String query,
     required String templeId,
     String? userLanguage,
+    String? templeName,
   }) async {
     try {
-      // Detect language if not provided
-      final language = userLanguage ?? 
+      final language = userLanguage ??
           _languageDetection.detectLanguage(query).language.code;
 
-      // Retrieve relevant content
       final relevantChunks = await retrieveRelevantContent(
         query: query,
         templeId: templeId,
         language: language,
       );
 
-      // Generate response using Groq API
       final response = await _callGroqAPI(
         query: query,
         context: relevantChunks,
         language: language,
+        templeId: templeId,
+        templeName: templeName,
       );
 
       return response;
@@ -227,35 +219,43 @@ class RAGService {
     required String query,
     required List<String> context,
     required String language,
+    String templeId = '',
+    String? templeName,
   }) async {
-    // Prepare context
-    final contextText = context.join('\n\n');
+    if (_apiKey.isEmpty) {
+      return _buildOfflineResponse(query, context, language);
+    }
 
-    // Build system prompt based on language
-    final systemPrompt = _buildSystemPrompt(language);
+    final contextText = context.isNotEmpty
+        ? context.join('\n\n')
+        : 'No specific records found for this temple in the local knowledge base.';
 
-    // Build user prompt
+    final templeLabel = templeName ?? templeId.replaceAll('_', ' ');
+
+    final systemPrompt = _buildSystemPrompt(language, templeLabel);
+
     final userPrompt = '''
+Temple: $templeLabel
 Query: $query
 
-Context Information:
+Verified temple information from our knowledge base:
 $contextText
 
-Please provide a culturally accurate and informative response about the temple based on the context above.
+Answer the query using ONLY the information above. 
+Do NOT use placeholder text like [Deity's Name], [Year], [Era/Dynasty] or any bracketed templates.
+If the knowledge base does not contain enough detail, say so honestly and share what you do know.
 ''';
 
-    // Build request body
     final requestBody = jsonEncode({
       'model': _config.model,
       'messages': [
         {'role': 'system', 'content': systemPrompt},
         {'role': 'user', 'content': userPrompt},
       ],
-      'temperature': 0.7,
+      'temperature': 0.4,
       'max_tokens': 1024,
     });
 
-    // Make API call
     final response = await http.post(
       Uri.parse(_groqApiUrl),
       headers: {
@@ -263,9 +263,11 @@ Please provide a culturally accurate and informative response about the temple b
         'Content-Type': 'application/json',
       },
       body: requestBody,
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Request timed out. Please try again.'),
     );
 
-    // Handle response
     if (response.statusCode == 200) {
       final data = jsonDecode(utf8.decode(response.bodyBytes));
       return data['choices'][0]['message']['content'] as String;
@@ -275,21 +277,26 @@ Please provide a culturally accurate and informative response about the temple b
   }
 
   /// Build system prompt based on language
-  String _buildSystemPrompt(String language) {
-    final prompts = {
-      'en': '''You are a knowledgeable temple guide providing culturally accurate information about Hindu temples. 
-Share authentic sthala puranam (temple history), rituals, mantras, and spiritual significance.
-Always maintain respect and authenticity in your responses.''',
-      'hi': '''आप हिंदू मंदिरों के बारे में सांस्कृतिक रूप से सटीक जानकारी प्रदान करने वाले ज्ञान मंदिर गाइड हैं। 
-प्रामाणिक स्थल पुराण (मंदिर का इतिहास), अनुष्ठान, मंत्र और आध्यात्मिक महत्व साझा करें।
-अपने उत्तरों में सम्मान और प्रामाणिकता बनाए रखें।''',
-      'ta': '''நீங்கள் இந்து கோவில்கள் பற்றிய கலாச்சார ரீதியாக துல்லியமான தகவல்களை வழங்கும் அறிவு கோவில் வழிகாட்டியாக இருக்கிறீர்கள். 
-உண்மையான ஸ்தல புராணம் (கோவில் வரலாறு), சடங்குகள், மந்திரங்கள் மற்றும் ஆன்மீக முக்கியத்துவத்தைப் பகிரவும்.''',
-      'te': '''మీరు హిందూ ఆలయాల గురించి సాంస్కృతికంగా ఖచ్చితమైన సమాచారాన్ని అందించే జ్ఞానం కలిగిన ఆలయ గైడ్‌గా ఉన్నారు. 
-అసలైన స్థల పురాణం (ఆలయ చరిత్ర), ఆచారాలు, మంత్రాలు, ఆధ్యాత్మిక ప్రాముఖ్యతను పంచుకోండి.''',
+  String _buildSystemPrompt(String language, String templeName) {
+    final base = {
+      'en': '''You are a knowledgeable temple guide for $templeName.
+Answer questions using ONLY the verified information provided in the context.
+Never use placeholder text like [Deity's Name], [Year], [Era/Dynasty], or any bracketed templates.
+If you don't have enough information, say "I don't have detailed records on that for $templeName, but here's what I know:" and share what's available.
+Keep answers concise, warm, and culturally respectful.''',
+      'hi': '''आप $templeName के लिए एक जानकार मंदिर गाइड हैं।
+केवल प्रदान की गई सत्यापित जानकारी का उपयोग करके प्रश्नों का उत्तर दें।
+कभी भी [देवता का नाम], [वर्ष] जैसे placeholder text का उपयोग न करें।
+उत्तर संक्षिप्त और सांस्कृतिक रूप से सम्मानजनक रखें।''',
+      'te': '''మీరు $templeName కోసం నిపుణుడైన ఆలయ గైడ్.
+అందించిన ధృవీకరించిన సమాచారాన్ని మాత్రమే ఉపయోగించి ప్రశ్నలకు సమాధానం ఇవ్వండి.
+[దేవత పేరు], [సంవత్సరం] వంటి placeholder text ఎప్పుడూ ఉపయోగించవద్దు.''',
+      'ta': '''நீங்கள் $templeName-க்கான அறிவுள்ள கோவில் வழிகாட்டி.
+வழங்கப்பட்ட சரிபார்க்கப்பட்ட தகவல்களை மட்டுமே பயன்படுத்தி கேள்விகளுக்கு பதிலளிக்கவும்.
+[தெய்வத்தின் பெயர்], [ஆண்டு] போன்ற placeholder text பயன்படுத்தாதீர்கள்.''',
     };
 
-    return prompts[language] ?? prompts['en']!;
+    return base[language] ?? base['en']!;
   }
 
   /// Add custom content to knowledge base
@@ -333,6 +340,21 @@ Always maintain respect and authenticity in your responses.''',
       'languageBreakdown': languageCounts,
       'typeBreakdown': typeCounts,
     };
+  }
+
+  /// Offline fallback: answer from local knowledge base only
+  String _buildOfflineResponse(
+    String query,
+    List<String> context,
+    String language,
+  ) {
+    if (context.isEmpty) {
+      return 'I don\'t have specific information about that. '
+          'Please connect to the internet for AI-powered answers.';
+    }
+    // Return the most relevant chunk as a plain answer
+    return '${context.first}\n\n'
+        '(Offline mode — connect to the internet for richer AI responses.)';
   }
 }
 

@@ -100,11 +100,12 @@ class DirectionsService {
         // CORS errors should not be retried - they're browser security issues
         throw CorsException('${e.message} (This is a CORS error - use Android device for testing)');
       } on GoogleMapsApiException catch (e) {
-        // API errors may be transient
-        attempt++;
-        if (attempt >= _maxRetries) {
+        // Never retry auth/quota errors — they won't resolve with retries
+        if (e.code == 'REQUEST_DENIED' || e.code == 'OVER_QUERY_LIMIT') {
           rethrow;
         }
+        attempt++;
+        if (attempt >= _maxRetries) rethrow;
         await Future.delayed(_retryDelay * attempt);
         lastException = e;
       } on Exception catch (e) {
@@ -285,47 +286,6 @@ class DirectionsService {
       ),
       steps: steps,
       temples: [],
-    );
-  }
-  
-  DirectionsResponse _parseMultiPointResponse(Map<String, dynamic> data, List<Temple> temples) {
-    final route = data['routes'][0];
-    final legs = route['legs'];
-    
-    final overviewPolyline = _decodePolyline(route['overview_polyline']['points']);
-    final bounds = route['bounds'];
-    
-    double totalDistance = 0;
-    Duration totalDuration = Duration.zero;
-    final steps = <RouteStep>[];
-    final tollSegments = <TollSegment>[];
-    
-    for (int i = 0; i < legs.length; i++) {
-      final leg = legs[i];
-      totalDistance += leg['distance']['value'] / 1000.0;
-      totalDuration += Duration(seconds: leg['duration']['value']);
-      
-      for (final step in leg['steps']) {
-        steps.add(RouteStep(
-          distance: step['distance']['value'] / 1000.0,
-          duration: Duration(seconds: step['duration']['value']),
-          instructions: step['html_instructions'].replaceAll(RegExp(r'<[^>]*>'), ''),
-          polylinePoints: _decodePolyline(step['polyline']['points']),
-        ));
-      }
-    }
-    
-    return DirectionsResponse(
-      overviewPolyline: overviewPolyline,
-      totalDistance: totalDistance,
-      totalDuration: totalDuration,
-      bounds: LatLngBounds(
-        southwest: LatLng(bounds['southwest']['lat'], bounds['southwest']['lng']),
-        northeast: LatLng(bounds['northeast']['lat'], bounds['northeast']['lng']),
-      ),
-      steps: steps,
-      temples: temples,
-      tollSegments: tollSegments,
     );
   }
   

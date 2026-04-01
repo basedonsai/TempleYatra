@@ -79,16 +79,17 @@ class RegionalTTSService {
 
   TTSState _currentState = TTSState.stopped;
   Duration _currentPosition = Duration.zero;
-  final Duration _totalDuration = Duration.zero;
+  Duration _totalDuration = Duration.zero;
   String _currentText = '';
   String _currentLanguage = 'en';
   
   // Callbacks
   Function(Duration, Duration)? _onPositionChanged;
   Function(TTSState)? _onStateChanged;
+  Timer? _progressTimer;
 
   RegionalTTSService({FlutterTts? flutterTts})
-    : _flutterTts = flutterTts ?? FlutterTts() {
+      : _flutterTts = flutterTts ?? FlutterTts() {
     _initTTS();
   }
 
@@ -99,52 +100,67 @@ class RegionalTTSService {
       await _flutterTts.setSpeechRate(0.9);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
-      
-      _flutterTts.setStartHandler(() {
-        _currentState = TTSState.playing;
-        _onStateChanged?.call(_currentState);
-      });
-      
-      _flutterTts.setCompletionHandler(() {
-        _currentState = TTSState.stopped;
-        _currentPosition = Duration.zero;
-        _onStateChanged?.call(_currentState);
-      });
-      
-      _flutterTts.setErrorHandler((error) {
-        debugPrint('TTS Error: $error');
-        _currentState = TTSState.stopped;
-        _onStateChanged?.call(_currentState);
-      });
+      // Handlers are registered in _registerHandlers(), called after setCallbacks()
     } catch (e) {
       debugPrint('TTS initialization error: $e');
     }
   }
 
+  void _registerHandlers() {
+    _flutterTts.setStartHandler(() {
+      _currentState = TTSState.playing;
+      _onStateChanged?.call(_currentState);
+      _progressTimer?.cancel();
+      _progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_currentState == TTSState.playing) {
+          _currentPosition = Duration(
+            seconds: (_currentPosition.inSeconds + 1)
+                .clamp(0, _totalDuration.inSeconds),
+          );
+          _onPositionChanged?.call(_currentPosition, _totalDuration);
+        }
+      });
+    });
+
+    _flutterTts.setCompletionHandler(() {
+      _progressTimer?.cancel();
+      _currentState = TTSState.stopped;
+      _currentPosition = Duration.zero;
+      _onStateChanged?.call(_currentState);
+      _onPositionChanged?.call(_currentPosition, _totalDuration);
+    });
+
+    _flutterTts.setErrorHandler((error) {
+      debugPrint('TTS Error: $error');
+      _progressTimer?.cancel();
+      _currentState = TTSState.stopped;
+      _onStateChanged?.call(_currentState);
+    });
+
+    _flutterTts.setCancelHandler(() {
+      _progressTimer?.cancel();
+      _currentState = TTSState.stopped;
+      _onStateChanged?.call(_currentState);
+    });
+  }
+
   /// Set voice for a specific language and region
   Future<void> setRegionalVoice(String languageCode, {String? region}) async {
-    final config = _voiceConfigs[languageCode];
-    if (config == null) {
-      debugPrint('No voice config for language: $languageCode');
-      return;
-    }
+    final config = _voiceConfigs[languageCode] ?? _voiceConfigs['en']!;
+    final locale = config['defaultVoice'] as String;
 
-    final voices = config['voices'] as List<String>;
-    final defaultVoice = config['defaultVoice'] as String;
-    final voice = region != null ? '$languageCode-$region' : defaultVoice;
-
-    // Check if voice is available
-    final availableVoices = await _flutterTts.getVoices;
-    if (availableVoices.contains(voice)) {
-      await _flutterTts.setVoice({'name': voice, 'locale': voice});
-    } else {
-      // Use default voice for language
-      await _flutterTts.setLanguage(defaultVoice);
+    // setLanguage is the reliable cross-platform way — getVoices returns Maps not Strings
+    try {
+      await _flutterTts.setLanguage(locale);
+    } catch (e) {
+      debugPrint('TTS setLanguage($locale) failed, falling back to en-US: $e');
+      await _flutterTts.setLanguage('en-US');
     }
 
     await _flutterTts.setSpeechRate(config['rate'] as double);
     await _flutterTts.setPitch(config['pitch'] as double);
-    
+    await _flutterTts.setVolume(1.0);
+
     _currentLanguage = languageCode;
   }
 
@@ -156,31 +172,40 @@ class RegionalTTSService {
   }) async {
     if (text.isEmpty) return;
 
+    // Stop any current speech first
+    _progressTimer?.cancel();
+    await _flutterTts.stop();
+
     _currentText = text;
-    
-    // Set voice for language
+    _currentPosition = Duration.zero;
+    _totalDuration = estimateDuration(text, languageCode);
+    _onPositionChanged?.call(_currentPosition, _totalDuration);
+
+    // Set language and base rate
     await setRegionalVoice(languageCode);
-    
-    // Adjust quality settings
-    switch (quality) {
-      case AudioQuality.low:
-        await _flutterTts.setSpeechRate(1.0);
-        break;
-      case AudioQuality.medium:
-        await _flutterTts.setSpeechRate(0.9);
-        break;
-      case AudioQuality.high:
-        await _flutterTts.setSpeechRate(0.7);
-        break;
-    }
+
+    // Apply quality modifier on top of base rate
+    final config = _voiceConfigs[languageCode] ?? _voiceConfigs['en']!;
+    final baseRate = config['rate'] as double;
+    final qualityRate = switch (quality) {
+      AudioQuality.low => baseRate * 1.1,
+      AudioQuality.medium => baseRate,
+      AudioQuality.high => baseRate * 0.85,
+    };
+    await _flutterTts.setSpeechRate(qualityRate.clamp(0.1, 1.0));
 
     _currentState = TTSState.loading;
     _onStateChanged?.call(_currentState);
 
     try {
-      await _flutterTts.speak(text);
+      final result = await _flutterTts.speak(text);
+      if (result != 1) {
+        // speak() returns 1 on success on Android
+        debugPrint('TTS speak returned: $result');
+      }
     } catch (e) {
       debugPrint('TTS speak error: $e');
+      _progressTimer?.cancel();
       _currentState = TTSState.stopped;
       _onStateChanged?.call(_currentState);
     }
@@ -188,14 +213,17 @@ class RegionalTTSService {
 
   /// Stop speaking
   Future<void> stop() async {
+    _progressTimer?.cancel();
     await _flutterTts.stop();
     _currentState = TTSState.stopped;
     _currentPosition = Duration.zero;
     _onStateChanged?.call(_currentState);
+    _onPositionChanged?.call(_currentPosition, _totalDuration);
   }
 
   /// Pause speaking
   Future<void> pause() async {
+    _progressTimer?.cancel();
     await _flutterTts.pause();
     _currentState = TTSState.paused;
     _onStateChanged?.call(_currentState);
@@ -265,13 +293,15 @@ class RegionalTTSService {
   /// Get current language
   String get currentLanguage => _currentLanguage;
 
-  /// Set callbacks
+  /// Set callbacks — also registers TTS handlers so they fire correctly
   void setCallbacks({
     Function(Duration, Duration)? onPositionChanged,
     Function(TTSState)? onStateChanged,
   }) {
     _onPositionChanged = onPositionChanged;
     _onStateChanged = onStateChanged;
+    // Register handlers now that callbacks are wired
+    _registerHandlers();
   }
 
   /// Check if TTS is available
@@ -301,6 +331,7 @@ class RegionalTTSService {
 
   /// Dispose TTS
   Future<void> dispose() async {
+    _progressTimer?.cancel();
     await _flutterTts.stop();
   }
 }

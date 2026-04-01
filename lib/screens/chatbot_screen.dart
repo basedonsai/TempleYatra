@@ -4,8 +4,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/temple_model.dart';
-import '../data/temples_data.dart';
+import '../database/db_providers.dart';
 import '../services/rag_service.dart';
 import '../services/language_detection_service.dart';
 import '../theme/app_theme.dart';
@@ -22,7 +23,7 @@ class ChatMessage {
   });
 }
 
-class ChatbotScreen extends StatefulWidget {
+class ChatbotScreen extends ConsumerStatefulWidget {
   final Temple? initialTemple;
 
   const ChatbotScreen({
@@ -31,10 +32,10 @@ class ChatbotScreen extends StatefulWidget {
   });
 
   @override
-  State<ChatbotScreen> createState() => _ChatbotScreenState();
+  ConsumerState<ChatbotScreen> createState() => _ChatbotScreenState();
 }
 
-class _ChatbotScreenState extends State<ChatbotScreen> {
+class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   late RAGService _ragService;
   final LanguageDetectionService _languageService = LanguageDetectionService();
   
@@ -45,8 +46,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   
   Temple? _selectedTemple;
   bool _showTempleSelector = true;
-
-  final List<Temple> _allTemples = allTemples;
 
   @override
   void initState() {
@@ -94,6 +93,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         query: question,
         templeId: _selectedTemple?.id ?? 'general',
         userLanguage: _selectedLanguage,
+        templeName: _selectedTemple?.name,
       );
 
       setState(() {
@@ -163,53 +163,57 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           SizedBox(
             height: templeCardWidth + 20,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _allTemples.length,
-              itemBuilder: (context, index) {
-                final temple = _allTemples[index];
-                final isSelected = _selectedTemple?.id == temple.id;
-                
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: GestureDetector(
-                    onTap: () => _selectTemple(temple),
-                    child: Container(
-                      width: templeCardWidth,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.saffron : Colors.grey[300]!,
-                          width: isSelected ? 2 : 1,
-                        ),
-                        color: isSelected ? AppTheme.saffron.withValues(alpha: 0.1) : Colors.white,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.temple_hindu,
-                            color: isSelected ? AppTheme.saffron : Colors.grey[600],
-                            size: 28,
-                          ),
-                          const SizedBox(height: 4),
-                          Expanded(
-                            child: Text(
-                              temple.name.split(' ').take(2).join(' '),
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 10 : 11,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? AppTheme.saffron : Colors.black87,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+            child: Builder(
+              builder: (context) {
+                final temples = ref.watch(allTemplesDbProvider).valueOrNull ?? [];
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: temples.length,
+                  itemBuilder: (context, index) {
+                    final temple = temples[index];
+                    final isSelected = _selectedTemple?.id == temple.id;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: GestureDetector(
+                        onTap: () => _selectTemple(temple),
+                        child: Container(
+                          width: templeCardWidth,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected ? AppTheme.saffron : Colors.grey[300]!,
+                              width: isSelected ? 2 : 1,
                             ),
+                            color: isSelected ? AppTheme.saffron.withValues(alpha: 0.1) : Colors.white,
                           ),
-                        ],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.temple_hindu,
+                                color: isSelected ? AppTheme.saffron : Colors.grey[600],
+                                size: 28,
+                              ),
+                              const SizedBox(height: 4),
+                              Expanded(
+                                child: Text(
+                                  temple.name.split(' ').take(2).join(' '),
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 10 : 11,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? AppTheme.saffron : Colors.black87,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             ),

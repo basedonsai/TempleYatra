@@ -1,47 +1,44 @@
-# Temple Yatra App
+# Temple Yatra
 
-A Flutter app for planning and experiencing temple pilgrimages in India — with route planning, temple details, audio guides, and community features.
+Flutter app for planning and experiencing temple pilgrimages — route planning, temple details, audio guides, and community features.
 
 ## Prerequisites
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install/windows/mobile) (SDK `^3.10.1`)
-- [Android Studio](https://developer.android.com/studio) with Flutter & Dart plugins
-- Android SDK + Emulator (installed via Android Studio)
-- A Google Maps API key (for maps and directions)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) `^3.10.1`
+- [Android Studio](https://developer.android.com/studio) with Flutter & Dart plugins installed
+- Android SDK + Emulator (via Android Studio Device Manager)
+- Google Maps API key
 
-## First-Time Setup
+## Setup
 
-### 1. Install Flutter & Android Studio
-
-After installing both, open Android Studio and go to `File > Settings > Plugins` and install the **Flutter** plugin (Dart installs automatically).
-
-### 2. Accept Android licenses
+### 1. Accept Android licenses
 
 ```bash
 flutter doctor --android-licenses
 flutter doctor
 ```
 
-Fix any remaining issues `flutter doctor` reports before continuing.
+Resolve any issues before continuing.
 
-### 3. Create an Android Emulator
+### 2. Create an emulator
 
 In Android Studio: `Tools > Device Manager > Create Device`
-- Recommended: Pixel 6, API 35
+Recommended: Pixel 6, API 35
 
-### 4. Configure local files
+### 3. Create local config files
 
-Create `android/local.properties` (git-ignored, each dev needs their own):
+`android/local.properties` (git-ignored):
 ```properties
 sdk.dir=C:\Users\YourUsername\AppData\Local\Android\Sdk
 ```
 
-Create `.env` in the project root (git-ignored):
+`.env` in project root (git-ignored):
 ```
 GOOGLE_MAPS_API_KEY=your_key_here
+GROQ_API_KEY
 ```
 
-### 5. Install dependencies & run
+### 4. Install dependencies and run
 
 ```bash
 flutter pub get
@@ -53,27 +50,28 @@ flutter run
 ```
 lib/
 ├── main.dart
-├── data/          # Static data sources
+├── data/          # Seed data (used only by DatabaseSeeder)
+├── database/      # SQLite repositories and providers
 ├── models/        # Data models
-├── providers/     # Riverpod state management
+├── providers/     # Riverpod providers
 ├── screens/       # UI screens
-└── services/      # Business logic & API calls
+├── services/      # Business logic
+├── theme/         # App theme
+├── utils/         # Utilities
+└── widgets/       # Shared widgets
 ```
 
 ## Common Issues
 
 **"SDK location not found"** — Create `android/local.properties` as shown above.
 
-**Build failures** — Run `flutter clean && flutter pub get && flutter run`.
+**Build failures** — `flutter clean && flutter pub get && flutter run`
 
-**Emulator not detected** — Run `flutter devices` to confirm it's visible.
+**Emulator not detected** — `flutter devices`
 
-## Building for Release
+## Release Builds
 
 ```bash
-# APK
-flutter build apk --release
-
-# App Bundle
-flutter build appbundle --release
+flutter build apk --release        # APK
+flutter build appbundle --release  # App Bundle
 ```

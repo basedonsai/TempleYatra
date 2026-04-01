@@ -111,7 +111,7 @@ final List<Temple> allTemples = [
   ),
   
   Temple(
-    id: ' Thousand Pillar Temple',
+    id: 'thousand_pillar_temple',
     placeId: 'ChIJThousandPillar_placeholder',
     name: 'Sri Rudreshwara Swamy Temple (Thousand Pillar Temple)',
     latitude: 18.0006,

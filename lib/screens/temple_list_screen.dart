@@ -1,7 +1,7 @@
 // Temple list screen showing all temples
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/temples_data.dart';
+import '../database/db_providers.dart';
 import '../models/temple_model.dart';
 import '../utils/distance_calculator.dart';
 import '../widgets/crowd_badge.dart';
@@ -10,14 +10,14 @@ import '../services/crowd_engine.dart';
 import 'temple_detail_screen.dart';
 
 
-class TempleListScreen extends StatefulWidget {
+class TempleListScreen extends ConsumerStatefulWidget {
   const TempleListScreen({super.key});
 
   @override
-  State<TempleListScreen> createState() => _TempleListScreenState();
+  ConsumerState<TempleListScreen> createState() => _TempleListScreenState();
 }
 
-class _TempleListScreenState extends State<TempleListScreen> {
+class _TempleListScreenState extends ConsumerState<TempleListScreen> {
   String _searchQuery = '';
   String _selectedFilter = 'All';
   
@@ -30,7 +30,7 @@ class _TempleListScreenState extends State<TempleListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredTemples = _getFilteredTemples();
+    final templesAsync = ref.watch(allTemplesDbProvider);
     final isSmallScreen = MediaQuery.of(context).size.width < 360;
 
     return Scaffold(
@@ -108,14 +108,27 @@ class _TempleListScreenState extends State<TempleListScreen> {
           
           // Temple list
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filteredTemples.length,
-              itemBuilder: (context, index) {
-                final temple = filteredTemples[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _TempleCard(temple: temple),
+            child: templesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Text(
+                  'Error loading temples: $error',
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              data: (allTemples) {
+                final filteredTemples = _getFilteredTemples(allTemples);
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filteredTemples.length,
+                  itemBuilder: (context, index) {
+                    final temple = filteredTemples[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _TempleCard(temple: temple),
+                    );
+                  },
                 );
               },
             ),
@@ -125,8 +138,8 @@ class _TempleListScreenState extends State<TempleListScreen> {
     );
   }
 
-  List<Temple> _getFilteredTemples() {
-    var temples = List<Temple>.from(allTemples);
+  List<Temple> _getFilteredTemples(List<Temple> source) {
+    var temples = List<Temple>.from(source);
     
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
@@ -159,6 +172,20 @@ class _TempleListScreenState extends State<TempleListScreen> {
     }
     
     return temples;
+  }
+}
+
+// Fix 1: Extract crowd badge into its own ConsumerWidget so only the badge
+// rebuilds on festival data changes, not the entire card.
+class _TempleCrowdBadge extends ConsumerWidget {
+  final String templeId;
+  const _TempleCrowdBadge({required this.templeId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(templeFestivalsProvider(templeId));
+    final level = computeCrowdLevel(templeId, DateTime.now(), events);
+    return CrowdBadge(level: level);
   }
 }
 
@@ -224,13 +251,7 @@ class _TempleCard extends StatelessWidget {
                   Positioned(
                     top: 12,
                     left: 12,
-                    child: Consumer(
-                      builder: (context, ref, _) {
-                        final events = ref.watch(templeFestivalsProvider(temple.id));
-                        final level = computeCrowdLevel(temple.id, DateTime.now(), events);
-                        return CrowdBadge(level: level);
-                      },
-                    ),
+                    child: _TempleCrowdBadge(templeId: temple.id),
                   ),
                   // Rating badge
                   Positioned(

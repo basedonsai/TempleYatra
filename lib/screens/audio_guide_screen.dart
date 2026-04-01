@@ -31,6 +31,10 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
   Timer? _timer;
   String? _currentText;
   String? _errorMessage;
+  double _playbackSpeed = 1.0;
+  static const List<double> _speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+  bool _isDownloading = false;
+  bool _isDownloaded = false;
 
   // Services
   final RegionalTTSService _ttsService = RegionalTTSService();
@@ -77,7 +81,10 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
       final content = await _getContentForCurrentSelection();
       
       if (content != null && content.isNotEmpty) {
-        final estimatedDuration = Duration(seconds: content.length * 50);
+        // Estimate duration: ~130 words/min average TTS speed
+        final wordCount = content.split(RegExp(r'\s+')).length;
+        final estimatedSeconds = (wordCount / 130 * 60).ceil();
+        final estimatedDuration = Duration(seconds: estimatedSeconds.clamp(10, 3600));
         setState(() {
           _currentText = content;
           _totalDuration = estimatedDuration;
@@ -224,6 +231,7 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
     setState(() {
       _selectedLanguage = language;
       _currentPosition = Duration.zero;
+      _isDownloaded = false;
     });
     _loadContent();
   }
@@ -233,38 +241,42 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
     setState(() {
       _selectedContentType = contentType;
       _currentPosition = Duration.zero;
+      _isDownloaded = false;
     });
     _loadContent();
   }
 
   Future<void> _downloadForOffline() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Downloading audio guide...'),
-        action: SnackBarAction(
-          label: 'View Progress',
-          onPressed: () {},
-        ),
-      ),
-    );
+    if (_isDownloading || _isDownloaded) return;
+    if (_currentText == null || _currentText!.isEmpty) return;
+
+    setState(() => _isDownloading = true);
 
     try {
       await _cacheService.cacheContent(
         templeId: widget.templeId,
         contentType: _selectedContentType,
         language: _selectedLanguage,
-        content: _currentText ?? '',
+        content: _currentText!,
       );
-
       if (mounted) {
+        setState(() {
+          _isDownloading = false;
+          _isDownloaded = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Audio guide downloaded for offline use')),
+          const SnackBar(
+            content: Text('Saved for offline use'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isDownloading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
+          SnackBar(content: Text('Save failed: $e')),
         );
       }
     }
@@ -511,15 +523,23 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Download button
+                    // Download button — shows spinner while saving, checkmark when done
                     IconButton(
-                      onPressed: _downloadForOffline,
-                      icon: Icon(
-                        _currentText != null ? Icons.cloud_download : Icons.cloud_done,
-                        color: Colors.grey[600],
-                        size: 24,
-                      ),
-                      tooltip: 'Download for offline',
+                      onPressed: (_isDownloading || _isDownloaded || _currentText == null)
+                          ? null
+                          : _downloadForOffline,
+                      icon: _isDownloading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              _isDownloaded ? Icons.cloud_done : Icons.cloud_download,
+                              color: _isDownloaded ? Colors.green : Colors.grey[600],
+                              size: 24,
+                            ),
+                      tooltip: _isDownloaded ? 'Saved offline' : 'Save for offline',
                     ),
                     
                     const SizedBox(width: 16),
@@ -554,16 +574,18 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                     // Speed button
                     IconButton(
                       onPressed: () {
+                        final currentIndex = _speeds.indexOf(_playbackSpeed);
+                        final nextIndex = (currentIndex + 1) % _speeds.length;
+                        setState(() => _playbackSpeed = _speeds[nextIndex]);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Playback speed: 1.0x')),
+                          SnackBar(
+                            content: Text('Speed: ${_playbackSpeed}x'),
+                            duration: const Duration(seconds: 1),
+                          ),
                         );
                       },
-                      icon: Icon(
-                        Icons.speed,
-                        color: Colors.grey[600],
-                        size: 24,
-                      ),
-                      tooltip: 'Playback speed',
+                      icon: Icon(Icons.speed, color: Colors.grey[600], size: 24),
+                      tooltip: 'Playback speed: ${_playbackSpeed}x',
                     ),
                   ],
                 ),

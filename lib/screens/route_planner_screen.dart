@@ -1,5 +1,6 @@
 // Route planner screen for multi-temple yatra with budget estimation
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -63,6 +64,8 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   // Budget service
   late BudgetService _budgetService;
   BudgetEstimate? _budgetEstimate;
+  // Cached per-vehicle fuel estimates — computed once when route/stats change
+  Map<VehicleType, String> _vehicleFuelLabels = {};
   
   // Directions service (for route visualization)
   late DirectionsService _directionsService;
@@ -90,19 +93,37 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         ? GroqService(apiKey: dotenv.env['GROQ_API_KEY']!)
         : null;
     _calculateRoute();
-    _startRouteMonitoring();
-    _startGpsTracking();
+    if (!kIsWeb) {
+      _startRouteMonitoring();
+      _startGpsTracking();
+    }
   }
 
-  void _startGpsTracking() {
+  void _startGpsTracking() async {
+    // Check and request location permission before starting stream
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever ||
+        permission == LocationPermission.denied) {
+      // Can't get location — route monitoring will use manual re-route only
+      return;
+    }
+
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
     );
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
-    ).listen((Position position) {
-      _updateUserPosition(LatLng(position.latitude, position.longitude));
+    ).handleError((error) {
+      // Swallow location errors gracefully — app works without GPS
+      debugPrint('Location stream error: $error');
+    }).listen((Position position) {
+      if (mounted) {
+        _updateUserPosition(LatLng(position.latitude, position.longitude));
+      }
     });
   }
 
@@ -286,6 +307,24 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   
   void _calculateBudget() {
     final distance = _statistics?.totalDistance ?? 0;
+    final bounds = _calculateBounds(_optimizedRoute);
+
+    // Cache fuel labels for all vehicle types — avoids 3x recalc per build
+    _vehicleFuelLabels = {
+      for (final v in VehicleType.values)
+        v: _budgetService.calculateBudget(
+          routeDetails: DirectionsResponse(
+            overviewPolyline: [], totalDistance: distance,
+            totalDuration: Duration.zero, bounds: bounds, steps: [], temples: _optimizedRoute,
+          ),
+          preferences: BudgetPreferences(
+            vehicleType: v, accommodationType: _selectedAccommodation,
+            numberOfNights: _numberOfNights, numberOfDays: _numberOfDays,
+            fuelPricePerLiter: _fuelPrice,
+          ),
+        ).formattedFuel,
+    };
+
     final preferences = BudgetPreferences(
       vehicleType: _selectedVehicle,
       accommodationType: _selectedAccommodation,
@@ -296,12 +335,8 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
     );
     
     final routeDetails = DirectionsResponse(
-      overviewPolyline: [],
-      totalDistance: distance,
-      totalDuration: Duration.zero,
-      bounds: _calculateBounds(_optimizedRoute),
-      steps: [],
-      temples: _optimizedRoute,
+      overviewPolyline: [], totalDistance: distance,
+      totalDuration: Duration.zero, bounds: bounds, steps: [], temples: _optimizedRoute,
     );
     
     setState(() {
@@ -453,22 +488,15 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         ),
       );
     }
-    setState(() {});
-  }
-  
-  void _updateRoutePolyline() {
+    // Build polylines in the same pass — single setState below
     _polylines = {};
     if (_optimizedRoute.length >= 2) {
-      // Use actual road-based route from Directions API if available
       final List<LatLng> routePoints;
       if (_directionsResponse != null && _directionsResponse!.overviewPolyline.isNotEmpty) {
-        // Use the actual road-based route from Google Directions API
         routePoints = _directionsResponse!.overviewPolyline;
       } else {
-        // Fallback: create straight line polylines (API key missing or API failed)
         routePoints = _optimizedRoute.map((t) => LatLng(t.latitude, t.longitude)).toList();
       }
-      
       _polylines.add(
         Polyline(
           polylineId: const PolylineId('route'),
@@ -480,8 +508,11 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         ),
       );
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
+
+  // Kept for API compatibility — now a no-op since _updateMapMarkers handles both
+  void _updateRoutePolyline() {}
   
   void _fitMapToRoute() {
     if (_mapController == null || _optimizedRoute.isEmpty) return;
@@ -748,8 +779,8 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
                     setState(() {
                       _selectedVehicle = vehicle;
                     });
+                    // Only recalculate budget — directions don't change by vehicle type
                     _calculateBudget();
-                    _fetchDirections(_optimizedRoute);
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -782,31 +813,12 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
             }).toList(),
           ),
           const SizedBox(height: 12),
-          // Show estimated cost for each vehicle type
+          // Show estimated cost for each vehicle type — read from cache
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: VehicleType.values.map((vehicle) {
-              final prefs = BudgetPreferences(
-                vehicleType: vehicle,
-                accommodationType: _selectedAccommodation,
-                numberOfNights: _numberOfNights,
-                numberOfDays: _numberOfDays,
-                fuelPricePerLiter: _fuelPrice,
-              );
-              final routeDetails = DirectionsResponse(
-                overviewPolyline: [],
-                totalDistance: _statistics?.totalDistance ?? 0,
-                totalDuration: Duration.zero,
-                bounds: _calculateBounds(_optimizedRoute),
-                steps: [],
-                temples: _optimizedRoute,
-              );
-              final estimate = _budgetService.calculateBudget(
-                routeDetails: routeDetails,
-                preferences: prefs,
-              );
               return Text(
-                estimate.formattedFuel,
+                _vehicleFuelLabels[vehicle] ?? '',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: _selectedVehicle == vehicle ? FontWeight.bold : FontWeight.normal,
