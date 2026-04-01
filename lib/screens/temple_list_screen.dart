@@ -1,8 +1,12 @@
 // Temple list screen showing all temples
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/temples_data.dart';
 import '../models/temple_model.dart';
 import '../utils/distance_calculator.dart';
+import '../widgets/crowd_badge.dart';
+import '../providers/festival_provider.dart';
+import '../services/crowd_engine.dart';
 import 'temple_detail_screen.dart';
 
 
@@ -214,6 +218,18 @@ class _TempleCard extends StatelessWidget {
                         size: 40,
                         color: Colors.white,
                       ),
+                    ),
+                  ),
+                  // Crowd badge
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final events = ref.watch(templeFestivalsProvider(temple.id));
+                        final level = computeCrowdLevel(temple.id, DateTime.now(), events);
+                        return CrowdBadge(level: level);
+                      },
                     ),
                   ),
                   // Rating badge

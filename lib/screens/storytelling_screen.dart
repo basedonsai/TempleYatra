@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/temple_model.dart';
 import '../models/cultural_content.dart';
 import '../data/cultural_content_data.dart';
@@ -12,6 +13,10 @@ import '../services/regional_tts_service.dart';
 import '../services/language_detection_service.dart';
 import '../services/offline_cache_service.dart';
 import '../theme/app_theme.dart';
+import '../models/audio_pack.dart';
+import '../providers/audio_pack_provider.dart';
+import '../widgets/offline_badge.dart';
+import 'package:just_audio/just_audio.dart';
 
 /// Chat message model for chatbot interface
 class ChatMessage {
@@ -26,7 +31,7 @@ class ChatMessage {
   });
 }
 
-class StorytellingScreen extends StatefulWidget {
+class StorytellingScreen extends ConsumerStatefulWidget {
   final String templeId;
   final Temple? temple;
 
@@ -37,15 +42,19 @@ class StorytellingScreen extends StatefulWidget {
   });
 
   @override
-  State<StorytellingScreen> createState() => _StorytellingScreenState();
+  ConsumerState<StorytellingScreen> createState() => _StorytellingScreenState();
 }
 
-class _StorytellingScreenState extends State<StorytellingScreen> {
+class _StorytellingScreenState extends ConsumerState<StorytellingScreen> {
   // Services
   late RAGService _ragService;
   late RegionalTTSService _ttsService;
   late OfflineCacheService _cacheService;
   final LanguageDetectionService _languageService = LanguageDetectionService();
+
+  // Offline audio
+  bool _useOfflineAudio = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   // State
   String _selectedLanguage = 'en';
@@ -96,6 +105,14 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
         });
       },
     );
+
+    // Check if a downloaded pack is available for this temple
+    final pack = ref.read(packForTempleProvider(widget.templeId));
+    if (pack != null && pack.downloadState == DownloadState.downloaded) {
+      setState(() {
+        _useOfflineAudio = true;
+      });
+    }
   }
 
   void _loadAvailableContent() async {
@@ -162,6 +179,21 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
     _loadContent();
   }
 
+  /// Map ContentType to ContentCategory for offline track lookup
+  ContentCategory _contentTypeToCategory(ContentType type) {
+    switch (type) {
+      case ContentType.sthalaPuranam:
+      case ContentType.history:
+        return ContentCategory.history;
+      case ContentType.ritual:
+        return ContentCategory.ritual;
+      case ContentType.significance:
+        return ContentCategory.significance;
+      default:
+        return ContentCategory.history;
+    }
+  }
+
   void _togglePlayPause() async {
     if (!_isPlaying && _storyContent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -169,6 +201,38 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
       );
       return;
     }
+
+    if (_useOfflineAudio) {
+      // Offline audio branch
+      final pack = ref.read(packForTempleProvider(widget.templeId));
+      if (pack != null && pack.downloadState == DownloadState.downloaded) {
+        final category = _contentTypeToCategory(_selectedContentType);
+        AudioTrack? track;
+        try {
+          track = pack.tracks.firstWhere((t) => t.category == category);
+        } catch (_) {
+          // Fall back to first track if no match
+          if (pack.tracks.isNotEmpty) {
+            track = pack.tracks.first;
+          }
+        }
+
+        if (track != null && track.localPath != null) {
+          if (_isPlaying) {
+            await _audioPlayer.pause();
+            setState(() => _isPlaying = false);
+          } else {
+            await _audioPlayer.setFilePath(track.localPath!);
+            await _audioPlayer.play();
+            setState(() => _isPlaying = true);
+          }
+          return;
+        }
+      }
+      // If no local path found, fall through to TTS
+    }
+
+    // TTS branch
     if (_isPlaying) {
       await _ttsService.pause();
     } else {
@@ -232,12 +296,18 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
   }
 
   void _stopAudio() async {
-    await _ttsService.stop();
+    if (_useOfflineAudio) {
+      await _audioPlayer.stop();
+      setState(() => _isPlaying = false);
+    } else {
+      await _ttsService.stop();
+    }
   }
 
   @override
   void dispose() {
     _ttsService.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -248,6 +318,7 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
         title: Text(_showChatbot ? 'Ask About ${widget.temple?.name ?? 'Temple'}' : '${widget.temple?.name ?? 'Temple'} Stories'),
         actions: [
           _buildLanguageSelector(),
+          _buildOfflineAudioToggle(),
           _buildOfflineIndicator(),
           _buildChatbotToggle(),
         ],
@@ -276,20 +347,39 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
     );
   }
 
+  /// Build offline audio toggle button (shown only when a downloaded pack exists)
+  Widget _buildOfflineAudioToggle() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final pack = ref.watch(packForTempleProvider(widget.templeId));
+        final isDownloaded = pack != null && pack.downloadState == DownloadState.downloaded;
+        if (!isDownloaded) return const SizedBox.shrink();
+        return IconButton(
+          icon: Icon(
+            _useOfflineAudio ? Icons.headphones : Icons.record_voice_over,
+          ),
+          tooltip: _useOfflineAudio ? 'Use TTS' : 'Use Offline Audio',
+          onPressed: () {
+            setState(() {
+              _useOfflineAudio = !_useOfflineAudio;
+            });
+          },
+        );
+      },
+    );
+  }
+
   /// Build offline indicator
   Widget _buildOfflineIndicator() {
-    return FutureBuilder<bool>(
-      future: _cacheService.isContentCached(
-        templeId: widget.templeId,
-        contentType: _selectedContentType.name,
-        language: _selectedLanguage,
-      ),
-      builder: (context, snapshot) {
-        final isCached = snapshot.data ?? false;
-        return Icon(
-          isCached ? Icons.offline_bolt : Icons.cloud_download,
-          color: isCached ? Colors.green : Colors.grey,
-          size: 20,
+    return Consumer(
+      builder: (context, ref, _) {
+        final pack = ref.watch(packForTempleProvider(widget.templeId));
+        if (pack == null || pack.downloadState != DownloadState.downloaded) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: OfflineBadge(packId: pack.packId),
         );
       },
     );

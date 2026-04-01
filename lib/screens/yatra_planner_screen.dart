@@ -1,19 +1,23 @@
 // Yatra planner screen with proper temple selection and itinerary generation
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../data/temples_data.dart';
 import '../models/temple_model.dart';
 import '../services/itinerary_generator.dart';
+import '../services/crowd_engine.dart';
+import '../providers/festival_provider.dart';
+import '../widgets/crowd_badge.dart';
 import 'route_planner_screen.dart';
 
-class YatraPlannerScreen extends StatefulWidget {
+class YatraPlannerScreen extends ConsumerStatefulWidget {
   const YatraPlannerScreen({super.key});
 
   @override
-  State<YatraPlannerScreen> createState() => _YatraPlannerScreenState();
+  ConsumerState<YatraPlannerScreen> createState() => _YatraPlannerScreenState();
 }
 
-class _YatraPlannerScreenState extends State<YatraPlannerScreen> {
+class _YatraPlannerScreenState extends ConsumerState<YatraPlannerScreen> {
   final _formKey = GlobalKey<FormState>();
   
   // Use actual Temple objects instead of String names
@@ -96,11 +100,15 @@ class _YatraPlannerScreenState extends State<YatraPlannerScreen> {
                     },
                     selectedColor: AppTheme.saffron.withValues(alpha: 0.3),
                     checkmarkColor: AppTheme.maroon,
-                    avatar: Icon(
-                      Icons.temple_hindu,
-                      size: 18,
-                      color: isSelected ? AppTheme.maroon : Colors.grey,
-                    ),
+                    avatar: Consumer(builder: (context, ref, _) {
+                      final events = ref.watch(templeFestivalsProvider(temple.id));
+                      final level = computeCrowdLevel(
+                        temple.id,
+                        _startDate ?? DateTime.now(),
+                        events,
+                      );
+                      return CrowdBadge(level: level, compact: true);
+                    }),
                   );
                 }).toList(),
               ),

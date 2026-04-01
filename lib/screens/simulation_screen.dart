@@ -221,10 +221,10 @@ class _SimulationScreenState extends State<SimulationScreen> {
           Text(_controller.statusMessage, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         ])),
         SizedBox(
-          height: 150,
+          height: 160,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             itemCount: _controller.currentRoute.length,
             itemBuilder: (context, index) {
               final temple = _controller.currentRoute[index];
@@ -238,32 +238,30 @@ class _SimulationScreenState extends State<SimulationScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: isCurrent ? Colors.green : Colors.transparent, width: 2),
                 ),
-                padding: const EdgeInsets.all(12),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Container(width: 24, height: 24, decoration: BoxDecoration(color: isCurrent ? Colors.green : Colors.orange, shape: BoxShape.circle), child: Center(child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)))),
-                    const Spacer(),
-                    if (isCurrent) const Icon(Icons.play_arrow, color: Colors.green, size: 16),
-                  ]),
-                  const SizedBox(height: 8),
-                  Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
-                  const Spacer(),
-                  if (arrivalTime != null) Text(_formatTime(arrivalTime), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                  TextButton.icon(
-                    onPressed: isCurrent 
-                      ? () {
-                          _controller.skipCurrentTemple();
-                          _showSkipFeedback();
-                        }
-                      : () {
-                          _controller.skipTempleAtIndex(index);
-                          _showSkipFeedback();
-                        },
-                    icon: const Icon(Icons.skip_next, size: 14),
-                    label: const Text('Skip', style: TextStyle(fontSize: 11)),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-                  ),
-                ]),
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [
+                      Container(width: 24, height: 24, decoration: BoxDecoration(color: isCurrent ? Colors.green : Colors.orange, shape: BoxShape.circle), child: Center(child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)))),
+                      const Spacer(),
+                      if (isCurrent) const Icon(Icons.play_arrow, color: Colors.green, size: 16),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                    const SizedBox(height: 4),
+                    if (arrivalTime != null) Text(_formatTime(arrivalTime), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    TextButton.icon(
+                      onPressed: isCurrent
+                        ? () { _controller.skipCurrentTemple(); _showSkipFeedback(); }
+                        : () { _controller.skipTempleAtIndex(index); _showSkipFeedback(); },
+                      icon: const Icon(Icons.skip_next, size: 14),
+                      label: const Text('Skip', style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    ),
+                  ],
+                ),
               );
             },
           ),

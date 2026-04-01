@@ -15,6 +15,10 @@ import '../utils/distance_calculator.dart';
 import 'simulation_screen.dart';
 import 'itinerary_input_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../widgets/crowd_badge.dart';
+import '../providers/festival_provider.dart';
+import '../services/crowd_engine.dart';
 
 class RoutePlannerScreen extends StatefulWidget {
   final List<Temple> selectedTemples;
@@ -636,6 +640,13 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 10),
                         ),
+                        const SizedBox(height: 4),
+                        Consumer(builder: (context, ref, _) {
+                          final events = ref.watch(templeFestivalsProvider(temple.id));
+                          final date = widget.itinerary?.dayPlans.firstOrNull?.date ?? DateTime.now();
+                          final level = computeCrowdLevel(temple.id, date, events);
+                          return CrowdBadge(level: level, compact: true);
+                        }),
                         if (index <= _currentWaypointIndex)
                           Icon(Icons.check_circle, color: Colors.green, size: 12),
                       ],

@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/temple_model.dart';
+import '../models/festival_event.dart';
 import '../utils/distance_calculator.dart';
+import '../providers/festival_provider.dart';
+import '../services/crowd_engine.dart';
+import '../widgets/crowd_badge.dart';
 import 'storytelling_screen.dart';
 import 'chatbot_screen.dart';
+import 'temple_calendar_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/audio_pack_section.dart';
 
 class TempleDetailScreen extends StatelessWidget {
   final Temple temple;
@@ -197,7 +205,26 @@ class TempleDetailScreen extends StatelessWidget {
                         ),
                         
                         const SizedBox(height: 20),
-                        
+
+                        // Crowd status row
+                        Consumer(builder: (context, ref, _) {
+                          final events = ref.watch(templeFestivalsProvider(temple.id));
+                          final level = computeCrowdLevel(temple.id, DateTime.now(), events);
+                          final label = switch (level) {
+                            CrowdLevel.low => 'Currently Low Crowd',
+                            CrowdLevel.moderate => 'Moderate Crowd Expected',
+                            CrowdLevel.high => 'High Crowd Expected',
+                          };
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Row(children: [
+                              CrowdBadge(level: level),
+                              const SizedBox(width: 8),
+                              Text(label, style: const TextStyle(fontSize: 13)),
+                            ]),
+                          );
+                        }),
+
                         // About section
                         _buildSection(
                           title: 'About',
@@ -240,6 +267,11 @@ class TempleDetailScreen extends StatelessWidget {
                         ),
                         
                         const SizedBox(height: 14),
+
+                        // Audio Pack
+                        AudioPackSection(temple: temple),
+
+                        const SizedBox(height: 14),
                         
                         // Festivals
                         _buildSection(
@@ -254,6 +286,42 @@ class TempleDetailScreen extends StatelessWidget {
                               ),
                               maxLines: 4,
                               overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 10),
+                            Consumer(builder: (context, ref, _) {
+                              final events = ref.watch(templeFestivalsProvider(temple.id));
+                              final now = DateTime.now();
+                              final today = DateTime(now.year, now.month, now.day);
+                              final upcoming = events
+                                  .where((e) => !DateTime(e.date.year, e.date.month, e.date.day).isBefore(today))
+                                  .take(3)
+                                  .toList();
+                              if (upcoming.isEmpty) {
+                                return const Text('No upcoming festivals in the next year.');
+                              }
+                              return Column(
+                                children: upcoming.map((e) => Row(children: [
+                                  CrowdBadge(level: computeCrowdLevel(temple.id, e.date, events)),
+                                  const SizedBox(width: 8),
+                                  Text(e.name),
+                                  const Spacer(),
+                                  Text(DateFormat('d MMM yyyy').format(e.date)),
+                                ])).toList(),
+                              );
+                            }),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TempleCalendarScreen(temple: temple),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.calendar_month, size: 18),
+                                label: const Text('View Festival Calendar'),
+                              ),
                             ),
                           ],
                         ),

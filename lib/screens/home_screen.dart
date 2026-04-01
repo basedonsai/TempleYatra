@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final maxWidth = AppTheme.getMaxWidth(context);
     final horizontalPadding = isWebDesktop ? 24.0 : (isWebTablet ? 20.0 : 16.0);
     final gridCrossCount = isWebDesktop ? 4 : (isWebTablet ? 3 : 2);
-    final gridChildAspectRatio = isWebDesktop ? 1.2 : (isWebTablet ? 1.3 : 1.4);
+    final gridChildAspectRatio = isWebDesktop ? 1.2 : (isWebTablet ? 1.3 : 1.1);
     final featuredCardWidth = isWebDesktop ? 280.0 : (isWebTablet ? 220.0 : (isSmallScreen ? 150.0 : 170.0));
     final iconSize = isSmallScreen ? 28.0 : (isWebDesktop ? 36.0 : 32.0);
 
@@ -689,6 +689,7 @@ class _QuickActionCard extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 width: iconSize + 12,
@@ -703,7 +704,7 @@ class _QuickActionCard extends StatelessWidget {
                   size: iconSize,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 8),
               Text(
                 title,
                 style: const TextStyle(

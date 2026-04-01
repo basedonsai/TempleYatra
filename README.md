@@ -1,221 +1,79 @@
 # Temple Yatra App
 
-A comprehensive Flutter application for planning and experiencing temple yatras (pilgrimages) in India. This app provides features like yatra planning, temple details, audio guides, community features, and offline support.
-
-## Features
-
-- 🗺️ **Yatra Planner**: Plan your temple visits with customizable routes
-- 🏛️ **Temple Details**: Comprehensive information about temples
-- 🎧 **Audio Guides**: Listen to temple history and significance
-- 👥 **Community**: Connect with other pilgrims
-- 📦 **Offline Support**: Download content for offline access
-- 🎨 **Modern UI**: Beautiful and intuitive interface
+A Flutter app for planning and experiencing temple pilgrimages in India — with route planning, temple details, audio guides, and community features.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+- [Flutter SDK](https://docs.flutter.dev/get-started/install/windows/mobile) (SDK `^3.10.1`)
+- [Android Studio](https://developer.android.com/studio) with Flutter & Dart plugins
+- Android SDK + Emulator (installed via Android Studio)
+- A Google Maps API key (for maps and directions)
 
-1. **Flutter SDK** (3.10.1 or higher)
-   - Download from [flutter.dev](https://flutter.dev/docs/get-started/install)
-   - Add Flutter to your PATH
+## First-Time Setup
 
-2. **Android Studio** or **Visual Studio Code**
-   - Android Studio: [Download here](https://developer.android.com/studio)
-   - VS Code: [Download here](https://code.visualstudio.com/) with Flutter extension
+### 1. Install Flutter & Android Studio
 
-3. **Android SDK** (for Android development)
-   - Install via Android Studio or standalone
-   - Ensure Android SDK location is configured
+After installing both, open Android Studio and go to `File > Settings > Plugins` and install the **Flutter** plugin (Dart installs automatically).
 
-4. **Git**
-   - Download from [git-scm.com](https://git-scm.com/)
-
-## Setup Instructions
-
-### 1. Clone the Repository
+### 2. Accept Android licenses
 
 ```bash
-git clone https://github.com/basedonsai/Temple-Yatra.git
-cd Temple-Yatra
-```
-
-### 2. Install Flutter Dependencies
-
-```bash
-flutter pub get
-```
-
-### 3. Verify Flutter Installation
-
-```bash
+flutter doctor --android-licenses
 flutter doctor
 ```
 
-Fix any issues reported by `flutter doctor` before proceeding.
+Fix any remaining issues `flutter doctor` reports before continuing.
 
-### 4. Configure Android Emulator
+### 3. Create an Android Emulator
 
-#### Create a New Emulator (Recommended)
+In Android Studio: `Tools > Device Manager > Create Device`
+- Recommended: Pixel 6, API 35
 
-1. Open Android Studio
-2. Go to **Tools** > **Device Manager**
-3. Click **Create Device**
-4. Select a phone model (e.g., Pixel 6)
-5. Select a system image (e.g., API 36)
-6. Give it a short, friendly name like `temple-yatra-emu`
-7. Click **Finish**
+### 4. Configure local files
 
-#### List Available Emulators
-
-```bash
-flutter emulators
+Create `android/local.properties` (git-ignored, each dev needs their own):
+```properties
+sdk.dir=C:\Users\YourUsername\AppData\Local\Android\Sdk
 ```
 
-#### Launch the Emulator
-
-```bash
-flutter emulators --launch <emulator-id>
+Create `.env` in the project root (git-ignored):
+```
+GOOGLE_MAPS_API_KEY=your_key_here
 ```
 
-Example:
-```bash
-flutter emulators --launch temple-yatra-emu
-```
-
-> **Note**: Emulator names are configured locally on each developer's machine and cannot be synced via Git. Each team member should create their own emulator with a name they prefer.
-
-### 5. Run the App
-
-#### Using Command Line
+### 5. Install dependencies & run
 
 ```bash
+flutter pub get
 flutter run
 ```
-
-#### Using VS Code
-
-1. Open the project in VS Code
-2. Press `F5` or click **Run** > **Start Debugging**
-3. Select your device/emulator from the device selector
-
-#### Using Android Studio
-
-1. Open the project in Android Studio
-2. Select your emulator from the device dropdown
-3. Click the **Run** button (green triangle)
 
 ## Project Structure
 
 ```
 lib/
-├── main.dart                 # App entry point
-├── screens/                  # All screen widgets
-│   ├── onboarding_screen.dart
-│   ├── home_screen.dart
-│   ├── temple_detail_screen.dart
-│   ├── yatra_planner_screen.dart
-│   ├── audio_guide_screen.dart
-│   ├── community_screen.dart
-│   └── offline_pack_manager_screen.dart
-└── theme/
-    └── app_theme.dart        # App theme configuration
+├── main.dart
+├── data/          # Static data sources
+├── models/        # Data models
+├── providers/     # Riverpod state management
+├── screens/       # UI screens
+└── services/      # Business logic & API calls
 ```
 
-## Common Issues & Solutions
+## Common Issues
 
-### Issue: "SDK location not found"
+**"SDK location not found"** — Create `android/local.properties` as shown above.
 
-**Solution**: Create `android/local.properties` file (this file is git-ignored):
+**Build failures** — Run `flutter clean && flutter pub get && flutter run`.
 
-```properties
-sdk.dir=C:\\Users\\YourUsername\\AppData\\Local\\Android\\Sdk
-```
-
-Replace `YourUsername` with your actual Windows username.
-
-### Issue: Emulator not showing up
-
-**Solution**:
-1. Ensure the emulator is running: `flutter emulators --launch <emulator-id>`
-2. Check devices: `flutter devices`
-3. Restart VS Code/Android Studio
-
-### Issue: Build failures
-
-**Solution**:
-```bash
-flutter clean
-flutter pub get
-flutter run
-```
-
-## Development Workflow
-
-### Before Making Changes
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-### After Making Changes
-
-```bash
-git add .
-git commit -m "Description of your changes"
-git push origin feature/your-feature-name
-```
-
-Then create a Pull Request on GitHub.
-
-## Testing
-
-Run tests:
-```bash
-flutter test
-```
+**Emulator not detected** — Run `flutter devices` to confirm it's visible.
 
 ## Building for Release
 
-### Android APK
-
 ```bash
+# APK
 flutter build apk --release
-```
 
-### Android App Bundle
-
-```bash
+# App Bundle
 flutter build appbundle --release
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## Team Setup Checklist
-
-- [ ] Flutter SDK installed and configured
-- [ ] Android Studio/VS Code installed
-- [ ] Android SDK configured
-- [ ] Repository cloned
-- [ ] Dependencies installed (`flutter pub get`)
-- [ ] Emulator created and tested
-- [ ] App runs successfully
-
-## Resources
-
-- [Flutter Documentation](https://flutter.dev/docs)
-- [Dart Documentation](https://dart.dev/guides)
-- [Material Design Guidelines](https://material.io/design)
-
-## License
-
-This project is private and intended for educational purposes.
-
-## Support
-
-For issues or questions, please create an issue on GitHub or contact the development team.
