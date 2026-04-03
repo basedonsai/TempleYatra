@@ -59,12 +59,20 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
 // ── Feed tab ──────────────────────────────────────────────────────────────
 
-class _FeedTab extends ConsumerWidget {
+class _FeedTab extends ConsumerStatefulWidget {
   const _FeedTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FeedTab> createState() => _FeedTabState();
+}
+
+class _FeedTabState extends ConsumerState<_FeedTab> {
+  String? _selectedTempleId;
+
+  @override
+  Widget build(BuildContext context) {
     final feedAsync = ref.watch(communityFeedProvider);
+    final templesAsync = ref.watch(allTemplesDbProvider);
     final currentUserAsync = ref.watch(currentUserProvider);
     final currentUserId = currentUserAsync.valueOrNull?.id ?? '';
     final currentUserRole = currentUserAsync.valueOrNull?.role ?? UserRole.guest;
@@ -85,7 +93,12 @@ class _FeedTab extends ConsumerWidget {
         ]),
       ),
       data: (posts) {
-        if (posts.isEmpty) {
+        final temples = templesAsync.valueOrNull ?? [];
+        final filtered = _selectedTempleId == null
+            ? posts
+            : posts.where((p) => p.templeId == _selectedTempleId).toList();
+
+        if (filtered.isEmpty) {
           return Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
@@ -95,17 +108,43 @@ class _FeedTab extends ConsumerWidget {
             ]),
           );
         }
-        return RefreshIndicator(
-          onRefresh: () => ref.read(communityFeedProvider.notifier).refresh(),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: posts.length,
-            itemBuilder: (context, i) => _PostCard(
-              post: posts[i],
-              currentUserId: currentUserId,
-              currentUserRole: currentUserRole,
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: DropdownButton<String?>(
+                isExpanded: true,
+                value: _selectedTempleId,
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('All Temples'),
+                  ),
+                  ...temples.map(
+                    (temple) => DropdownMenuItem<String?>(
+                      value: temple.id,
+                      child: Text(temple.name, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _selectedTempleId = value),
+              ),
             ),
-          ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.read(communityFeedProvider.notifier).refresh(),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) => _PostCard(
+                    post: filtered[i],
+                    currentUserId: currentUserId,
+                    currentUserRole: currentUserRole,
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

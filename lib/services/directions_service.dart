@@ -258,28 +258,38 @@ class DirectionsService {
   
   DirectionsResponse _parseDirectionsResponse(Map<String, dynamic> data) {
     final route = data['routes'][0];
-    final leg = route['legs'][0];
-    
+    final legs = route['legs'] as List;
+
     final overviewPolyline = _decodePolyline(route['overview_polyline']['points']);
     final bounds = route['bounds'];
-    
-    final distance = leg['distance']['value'] / 1000.0; // km
-    final duration = Duration(seconds: leg['duration']['value']);
-    
+
+    // Sum all legs for total distance and duration
+    double totalDistance = 0;
+    int totalSeconds = 0;
     final steps = <RouteStep>[];
-    for (final step in leg['steps']) {
-      steps.add(RouteStep(
-        distance: step['distance']['value'] / 1000.0,
-        duration: Duration(seconds: step['duration']['value']),
-        instructions: step['html_instructions'].replaceAll(RegExp(r'<[^>]*>'), ''),
-        polylinePoints: _decodePolyline(step['polyline']['points']),
-      ));
+    final legDurations = <Duration>[];
+
+    for (final leg in legs) {
+      totalDistance += (leg['distance']['value'] as int) / 1000.0;
+      final legSecs = leg['duration']['value'] as int;
+      totalSeconds += legSecs;
+      legDurations.add(Duration(seconds: legSecs));
+
+      for (final step in leg['steps']) {
+        steps.add(RouteStep(
+          distance: (step['distance']['value'] as int) / 1000.0,
+          duration: Duration(seconds: step['duration']['value'] as int),
+          instructions: (step['html_instructions'] as String).replaceAll(RegExp(r'<[^>]*>'), ''),
+          polylinePoints: _decodePolyline(step['polyline']['points']),
+        ));
+      }
     }
-    
+
     return DirectionsResponse(
       overviewPolyline: overviewPolyline,
-      totalDistance: distance,
-      totalDuration: duration,
+      totalDistance: totalDistance,
+      totalDuration: Duration(seconds: totalSeconds),
+      legDurations: legDurations,
       bounds: LatLngBounds(
         southwest: LatLng(bounds['southwest']['lat'], bounds['southwest']['lng']),
         northeast: LatLng(bounds['northeast']['lat'], bounds['northeast']['lng']),
@@ -352,8 +362,9 @@ class DirectionsResponse {
   final List<RouteStep> steps;
   final List<Temple> temples;
   final List<TollSegment> tollSegments;
+  final List<Duration> legDurations; // per-waypoint-segment ETA from API
   final bool isEstimated;
-  
+
   DirectionsResponse({
     required this.overviewPolyline,
     required this.totalDistance,
@@ -362,6 +373,7 @@ class DirectionsResponse {
     required this.steps,
     required this.temples,
     this.tollSegments = const [],
+    this.legDurations = const [],
     this.isEstimated = false,
   });
   

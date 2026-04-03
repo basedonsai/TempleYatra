@@ -5,6 +5,7 @@ import '../models/temple_model.dart';
 import '../models/smart_itinerary.dart';
 import '../providers/itinerary_provider.dart';
 import '../services/budget_service.dart';
+import '../theme/app_theme.dart';
 import 'itinerary_preview_screen.dart';
 
 class ItineraryInputScreen extends ConsumerStatefulWidget {
@@ -138,9 +139,21 @@ class _ItineraryInputScreenState extends ConsumerState<ItineraryInputScreen> {
               if (widget.selectedTemples.isNotEmpty)
                 Wrap(
                   spacing: 8,
-                  runSpacing: 4,
+                  runSpacing: 6,
                   children: widget.selectedTemples
-                      .map((t) => Chip(label: Text(t.name)))
+                      .map((t) => Chip(
+                            label: Text(
+                              t.name,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            backgroundColor: AppTheme.sandalwoodBeige,
+                            side: const BorderSide(color: AppTheme.borderColor),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ))
                       .toList(),
                 ),
               const SizedBox(height: 20),
@@ -154,13 +167,17 @@ class _ItineraryInputScreenState extends ConsumerState<ItineraryInputScreen> {
                       _startDate == null
                           ? 'No date selected'
                           : '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}',
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: _startDate == null ? AppTheme.textSecondary : AppTheme.textPrimary,
+                        fontWeight: _startDate == null ? FontWeight.normal : FontWeight.w600,
+                      ),
                     ),
                   ),
                   TextButton.icon(
                     onPressed: isLoading ? null : _pickDate,
-                    icon: const Icon(Icons.calendar_today),
-                    label: const Text('Pick Date'),
+                    icon: const Icon(Icons.calendar_today, color: AppTheme.maroon),
+                    label: const Text('Pick Date',
+                        style: TextStyle(color: AppTheme.maroon, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -176,17 +193,20 @@ class _ItineraryInputScreenState extends ConsumerState<ItineraryInputScreen> {
                     onPressed: isLoading || _numberOfDays <= 1
                         ? null
                         : () => setState(() => _numberOfDays--),
-                    icon: const Icon(Icons.remove_circle_outline),
+                    icon: const Icon(Icons.remove_circle_outline, color: AppTheme.maroon),
                   ),
                   Text(
                     '$_numberOfDays',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     onPressed: isLoading || _numberOfDays >= 14
                         ? null
                         : () => setState(() => _numberOfDays++),
-                    icon: const Icon(Icons.add_circle_outline),
+                    icon: const Icon(Icons.add_circle_outline, color: AppTheme.maroon),
                   ),
                   Text(
                     _numberOfDays == 1 ? '1 day' : '$_numberOfDays days',
@@ -236,6 +256,23 @@ class _ItineraryInputScreenState extends ConsumerState<ItineraryInputScreen> {
                     ? null
                     : (selection) =>
                         setState(() => _travelMode = selection.first),
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) return AppTheme.maroon;
+                    return Colors.white;
+                  }),
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) return Colors.white;
+                    return AppTheme.textPrimary;
+                  }),
+                  iconColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) return Colors.white;
+                    return AppTheme.textSecondary;
+                  }),
+                  side: WidgetStateProperty.all(
+                    const BorderSide(color: AppTheme.borderColor),
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -277,6 +314,13 @@ class _ItineraryInputScreenState extends ConsumerState<ItineraryInputScreen> {
                         )
                       : const Icon(Icons.auto_awesome),
                   label: Text(isLoading ? 'Generating…' : 'Generate Itinerary'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.maroon,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
             ],

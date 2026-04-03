@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/temple_model.dart';
 import '../models/route_model.dart';
-import '../data/temples_data.dart';
 
 class RoutingEngine {
   final List<Temple> temples;
@@ -88,22 +87,24 @@ class RoutingEngine {
     return routePoints.length - 1; // Return last index if all reached
   }
   
-  /// Optimize for least time - prioritizes main roads and highways
-  /// This is the ONLY optimization mode used
+  /// Optimize for least time — nearest-neighbor from westernmost temple,
+  /// no hardcoded start point dependency
   List<Temple> _optimizeForTime() {
-    // Start from central location (Birla Mandir)
-    final startPoint = allTemples.firstWhere(
-      (t) => t.id == 'birla_mandir_hyderabad', 
-      orElse: () => temples.first
-    );
-    
-    final result = <Temple>[startPoint];
-    final remaining = temples.where((t) => t.id != startPoint.id).toList();
-    
-    // Cluster temples by longitude (west to east along main roads)
-    remaining.sort((a, b) => a.longitude.compareTo(b.longitude));
-    result.addAll(remaining);
-    
+    final unvisited = List<Temple>.from(temples);
+    // Start from westernmost temple as a neutral geographic anchor
+    unvisited.sort((a, b) => a.longitude.compareTo(b.longitude));
+    final result = <Temple>[unvisited.removeAt(0)];
+    while (unvisited.isNotEmpty) {
+      final last = result.last;
+      Temple nearest = unvisited.first;
+      double minDist = double.infinity;
+      for (final t in unvisited) {
+        final d = _calculateDistance(last.latitude, last.longitude, t.latitude, t.longitude);
+        if (d < minDist) { minDist = d; nearest = t; }
+      }
+      unvisited.remove(nearest);
+      result.add(nearest);
+    }
     return result;
   }
   

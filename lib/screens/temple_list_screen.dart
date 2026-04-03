@@ -6,6 +6,7 @@ import '../models/temple_model.dart';
 import '../utils/distance_calculator.dart';
 import '../widgets/crowd_badge.dart';
 import '../providers/festival_provider.dart';
+import '../models/festival_event.dart';
 import '../services/crowd_engine.dart';
 import 'temple_detail_screen.dart';
 
@@ -183,8 +184,11 @@ class _TempleCrowdBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final events = ref.watch(templeFestivalsProvider(templeId));
-    final level = computeCrowdLevel(templeId, DateTime.now(), events);
+    final level = ref.watch(templeFestivalsDbProvider(templeId)).when(
+      loading: () => CrowdLevel.low,
+      error: (_, __) => CrowdLevel.low,
+      data: (events) => computeCrowdLevel(templeId, DateTime.now(), events),
+    );
     return CrowdBadge(level: level);
   }
 }

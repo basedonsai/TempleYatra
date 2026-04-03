@@ -1,8 +1,9 @@
 // Itinerary generator service with date, budget, and time constraints
 import 'dart:math';
 import '../models/temple_model.dart';
-import '../data/temples_data.dart';
 import '../utils/distance_calculator.dart';
+/// Darshan style affects how long the user spends at each temple
+enum DarshanStyle { quick, standard, full }
 
 /// Constraints for itinerary generation
 class ItineraryConstraints {
@@ -13,6 +14,19 @@ class ItineraryConstraints {
   final int? maxTemplesPerDay;
   final String? travelMode;
 
+  // New inputs
+  final int startHour;    // Hour component of daily start time (0-23)
+  final int startMinute;  // Minute component of daily start time
+  final DarshanStyle darshanStyle;    // Quick / Standard / Full puja
+  final bool avoidHighways;           // Prefer scenic/local roads
+  final String? accommodationAddress; // Where user stays (affects day-start point)
+  final int groupSize;                // Affects crowd warnings
+  final AccommodationPref accommodation;
+  final int numberOfNights;
+  final double foodBudgetPerDay;
+  final double miscBudgetPerDay;
+  final double fuelPricePerLiter;
+
   const ItineraryConstraints({
     this.startDate,
     this.endDate,
@@ -20,8 +34,40 @@ class ItineraryConstraints {
     this.maxDays,
     this.maxTemplesPerDay = 3,
     this.travelMode = 'Car',
+    this.startHour = 6,
+    this.startMinute = 0,
+    this.darshanStyle = DarshanStyle.standard,
+    this.avoidHighways = false,
+    this.accommodationAddress,
+    this.groupSize = 1,
+    this.accommodation = AccommodationPref.budget,
+    this.numberOfNights = 0,
+    this.foodBudgetPerDay = 500,
+    this.miscBudgetPerDay = 200,
+    this.fuelPricePerLiter = 100,
   });
+
+  /// Darshan duration in minutes based on style and temple rating
+  int darshanMinutes(double? rating) {
+    final base = switch (darshanStyle) {
+      DarshanStyle.quick => 20,
+      DarshanStyle.standard => (rating != null && rating > 4.5) ? 60 : 30,
+      DarshanStyle.full => (rating != null && rating > 4.5) ? 120 : 90,
+    };
+    return base;
+  }
+
+  /// Average travel speed km/h for the selected mode
+  double get speedKmh => switch (travelMode) {
+    'Car' => avoidHighways ? 30.0 : 40.0,
+    'Bike' => avoidHighways ? 25.0 : 35.0,
+    'Bus' => 25.0,
+    'Train' => 60.0,
+    _ => 40.0,
+  };
 }
+
+enum AccommodationPref { none, budget, midRange, luxury }
 
 /// Generated itinerary result
 class GeneratedItinerary {
@@ -92,13 +138,11 @@ class ItineraryGenerator {
     this.constraints = const ItineraryConstraints(),
   });
 
-  /// Generate a complete itinerary based on constraints
   GeneratedItinerary generate() {
     final List<String> warnings = [];
-    
-    // Filter temples by constraints
+
     final validTemples = _filterByConstraints(warnings);
-    
+
     if (validTemples.isEmpty) {
       warnings.add('No temples match the selected criteria');
       return GeneratedItinerary(
@@ -110,25 +154,27 @@ class ItineraryGenerator {
       );
     }
 
-    // Optimize route for the temples
     final orderedTemples = _optimizeRoute(validTemples);
-    
-    // Split into daily plans
     final dayPlans = _createDailyPlans(orderedTemples, warnings);
-    
-    // Calculate totals
-    final totalDistance = dayPlans.fold<double>(
-      0, 
-      (sum, day) => sum + day.dailyDistance
-    );
-    final totalDuration = dayPlans.fold<Duration>(
-      Duration.zero,
-      (sum, day) => sum + day.dailyDuration,
-    );
-    final estimatedCost = dayPlans.fold<double>(
-      0,
-      (sum, day) => sum + day.dailyCost,
-    );
+
+    final totalDistance = dayPlans.fold<double>(0, (s, d) => s + d.dailyDistance);
+    final totalDuration = dayPlans.fold<Duration>(Duration.zero, (s, d) => s + d.dailyDuration);
+    final estimatedCost = dayPlans.fold<double>(0, (s, d) => s + d.dailyCost);
+
+    // Budget check
+    if (constraints.maxBudget != null && constraints.maxBudget! > 0) {
+      final tripCost = estimatedCost + _accommodationCost() + _travelCost(totalDistance);
+      if (tripCost > constraints.maxBudget!) {
+        warnings.add(
+          'Estimated total ₹${tripCost.toStringAsFixed(0)} exceeds your budget of ₹${constraints.maxBudget!.toStringAsFixed(0)}',
+        );
+      }
+    }
+
+    // Group size crowd warning
+    if (constraints.groupSize > 10) {
+      warnings.add('Large group (${constraints.groupSize} people) — expect longer queues at popular temples');
+    }
 
     return GeneratedItinerary(
       dayPlans: dayPlans,
@@ -139,204 +185,128 @@ class ItineraryGenerator {
     );
   }
 
-  /// Filter temples based on all constraints
   List<Temple> _filterByConstraints(List<String> warnings) {
     List<Temple> filtered = List<Temple>.from(availableTemples);
 
-    // Filter by budget if set
-    if (constraints.maxBudget != null && constraints.maxBudget! > 0) {
-      final affordableTemples = filtered.where((t) {
-        final cost = _estimateTempleCost(t);
-        return cost <= constraints.maxBudget!;
-      }).toList();
-      
-      if (affordableTemples.length < filtered.length) {
-        warnings.add('${filtered.length - affordableTemples.length} temples excluded due to budget constraints');
-      }
-      filtered = affordableTemples;
-    }
-
-    // Filter by date availability if set
-    if (constraints.startDate != null && constraints.endDate != null) {
-      final availableTemples = filtered.where((t) {
-        return _isTempleAvailable(t, constraints.startDate!, constraints.endDate!);
-      }).toList();
-      
-      if (availableTemples.length < filtered.length) {
-        warnings.add('${filtered.length - availableTemples.length} temples not available on selected dates');
-      }
-      filtered = availableTemples;
-    }
-
-    // Limit number of temples if max days is set
     if (constraints.maxDays != null && constraints.maxTemplesPerDay != null) {
-      final maxTotalTemples = constraints.maxDays! * constraints.maxTemplesPerDay!;
-      if (filtered.length > maxTotalTemples) {
-        warnings.add('Limited to $maxTotalTemples temples based on available days');
-        filtered = filtered.take(maxTotalTemples).toList();
+      final maxTotal = constraints.maxDays! * constraints.maxTemplesPerDay!;
+      if (filtered.length > maxTotal) {
+        warnings.add('Limited to $maxTotal temples based on available days');
+        filtered = filtered.take(maxTotal).toList();
       }
     }
 
     return filtered;
   }
 
-  /// Check if temple is available during date range
-  bool _isTempleAvailable(Temple temple, DateTime start, DateTime end) {
-    // Check if temple has valid timings
-    if (temple.darshanTimings.isEmpty) return true;
-    
-    // In a real app, this would check festival schedules, special events, etc.
-    // For now, all temples are considered available
-    return true;
-  }
-
-  /// Optimize route using TSP algorithm
   List<Temple> _optimizeRoute(List<Temple> temples) {
     if (temples.length <= 2) return temples;
-
-    // Use nearest neighbor + 2-opt improvement
     final ordered = _nearestNeighborOrder(temples);
     return _twoOptImprovement(ordered);
   }
 
-  /// Nearest neighbor algorithm for initial ordering
+  /// Nearest-neighbor TSP starting from the geographically first temple
+  /// (no hardcoded Birla Mandir dependency)
   List<Temple> _nearestNeighborOrder(List<Temple> temples) {
-    final List<Temple> unvisited = List<Temple>.from(temples);
-    final List<Temple> route = [];
-    
-    // Start with temple closest to Hyderabad center
-    final origin = allTemples.firstWhere((t) => t.id == 'birla_mandir_hyderabad');
-    Temple current = origin;
-    
+    final unvisited = List<Temple>.from(temples);
+    final route = <Temple>[];
+
+    // Start from the westernmost temple (lowest longitude) as a neutral anchor
+    unvisited.sort((a, b) => a.longitude.compareTo(b.longitude));
+    Temple current = unvisited.removeAt(0);
+    route.add(current);
+
     while (unvisited.isNotEmpty) {
-      unvisited.remove(current);
-      if (!route.contains(current)) {
-        route.add(current);
-      }
-      
-      if (unvisited.isNotEmpty) {
-        current = _findNearest(current, unvisited);
-      }
+      final nearest = _findNearest(current, unvisited);
+      unvisited.remove(nearest);
+      route.add(nearest);
+      current = nearest;
     }
-    
+
     return route;
   }
 
-  /// Find the nearest temple to the current one
   Temple _findNearest(Temple current, List<Temple> candidates) {
     Temple nearest = candidates.first;
-    double minDistance = double.infinity;
-    
-    for (final candidate in candidates) {
-      final distance = _getDistance(current, candidate);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = candidate;
-      }
+    double minDist = double.infinity;
+    for (final c in candidates) {
+      final d = _dist(current, c);
+      if (d < minDist) { minDist = d; nearest = c; }
     }
-    
     return nearest;
   }
 
-  /// Get distance between two temples
-  double _getDistance(Temple a, Temple b) {
-    return calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude);
-  }
+  double _dist(Temple a, Temple b) =>
+      calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude);
 
-  /// Estimate travel time in minutes based on distance
-  double estimateTravelTime(double distanceKm) {
-    // Average speed assumptions (km/h)
-    const speeds = {
-      'Car': 40.0,
-      'Bike': 35.0,
-      'Bus': 25.0,
-      'Walking': 5.0,
-    };
-    final speed = speeds[constraints.travelMode] ?? 40.0;
-    return (distanceKm / speed) * 60; // Convert hours to minutes
-  }
-
-  /// 2-opt improvement algorithm
   List<Temple> _twoOptImprovement(List<Temple> route) {
     if (route.length < 4) return route;
-    
-    List<Temple> improved = List<Temple>.from(route);
-    bool improvement = true;
-    
-    while (improvement) {
-      improvement = false;
-      
-      for (var i = 1; i < improved.length - 2; i++) {
-        for (var j = i + 2; j < improved.length; j++) {
-          final currentDistance = _getDistance(improved[i - 1], improved[i]) +
-              _getDistance(improved[j - 1], improved[j]);
-          final newDistance = _getDistance(improved[i - 1], improved[j - 1]) +
-              _getDistance(improved[i], improved[j]);
-          
-          if (newDistance < currentDistance) {
-            final segment = improved.sublist(i, j);
-            final reversed = segment.reversed.toList();
-            improved.replaceRange(i, j, reversed);
-            improvement = true;
+    final improved = List<Temple>.from(route);
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (int i = 1; i < improved.length - 2; i++) {
+        for (int j = i + 2; j < improved.length; j++) {
+          final before = _dist(improved[i - 1], improved[i]) + _dist(improved[j - 1], improved[j]);
+          final after = _dist(improved[i - 1], improved[j - 1]) + _dist(improved[i], improved[j]);
+          if (after < before) {
+            improved.replaceRange(i, j, improved.sublist(i, j).reversed.toList());
+            changed = true;
           }
         }
       }
     }
-    
     return improved;
   }
 
-  /// Create daily plans from optimized temple list
   List<DayPlan> _createDailyPlans(List<Temple> temples, List<String> warnings) {
-    final List<DayPlan> dayPlans = [];
+    final dayPlans = <DayPlan>[];
     final templesPerDay = constraints.maxTemplesPerDay ?? 3;
     final days = (temples.length / templesPerDay).ceil();
-    
     DateTime currentDate = constraints.startDate ?? DateTime.now();
-    
+
     for (int day = 0; day < days; day++) {
-      final startIndex = day * templesPerDay;
-      final endIndex = min(startIndex + templesPerDay, temples.length);
-      final dayTemples = temples.sublist(startIndex, endIndex);
-      
+      final start = day * templesPerDay;
+      final end = min(start + templesPerDay, temples.length);
+      final dayTemples = temples.sublist(start, end);
       if (dayTemples.isEmpty) break;
 
       final visits = <TempleVisit>[];
       double dailyDistance = 0;
       Duration dailyDuration = Duration.zero;
       double dailyCost = 0;
-      
-      String previousArrivalTime = '08:00 AM';
-      
+
+      // Day start time from user preference
+      String previousDepartureTime = _formatTime(
+        constraints.startHour,
+        constraints.startMinute,
+      );
+
       for (int i = 0; i < dayTemples.length; i++) {
         final temple = dayTemples[i];
-        final order = i + 1;
-        
-        // Calculate arrival time
-        final arrivalTime = _calculateArrivalTime(previousArrivalTime, dailyDuration);
-        
-        // Darshan duration (minimum 30 minutes, varies by temple popularity)
-        final darshanDuration = Duration(minutes: temple.rating != null && temple.rating! > 4.5 ? 60 : 30);
-        final departureTime = _calculateDepartureTime(arrivalTime, darshanDuration);
-        
-        // Travel distance and time
+
         double travelDistance = 0;
         Duration travelTime = Duration.zero;
-        
+
         if (i > 0) {
-          final prevTemple = dayTemples[i - 1];
-          travelDistance = _getDistance(prevTemple, temple);
-          travelTime = Duration(minutes: estimateTravelTime(travelDistance).toInt());
+          travelDistance = _dist(dayTemples[i - 1], temple);
+          final travelMinutes = (travelDistance / constraints.speedKmh) * 60;
+          travelTime = Duration(minutes: travelMinutes.ceil());
           dailyDistance += travelDistance;
         }
-        
-        // Estimate cost
-        final visitCost = _estimateTempleCost(temple);
+
+        final arrivalTime = _addMinutes(previousDepartureTime, travelTime.inMinutes);
+        final darshanMins = constraints.darshanMinutes(temple.rating);
+        final darshanDuration = Duration(minutes: darshanMins);
+        final departureTime = _addMinutes(arrivalTime, darshanMins);
+
+        final visitCost = _estimateVisitCost(temple);
         dailyCost += visitCost;
-        
+        dailyDuration += travelTime + darshanDuration;
+
         visits.add(TempleVisit(
           temple: temple,
-          order: order,
+          order: i + 1,
           arrivalTime: arrivalTime,
           departureTime: departureTime,
           darshanDuration: darshanDuration,
@@ -344,16 +314,14 @@ class ItineraryGenerator {
           travelTime: travelTime,
           estimatedCost: visitCost,
         ));
-        
-        previousArrivalTime = departureTime;
-        dailyDuration += travelTime + darshanDuration;
+
+        previousDepartureTime = departureTime;
       }
-      
-      // Check if daily plan exceeds reasonable hours
+
       if (dailyDuration.inHours > 10) {
-        warnings.add('Day ${day + 1} itinerary is quite full ($dailyDuration)');
+        warnings.add('Day ${day + 1} is quite full (${dailyDuration.inHours}h ${dailyDuration.inMinutes.remainder(60)}m) — consider reducing temples per day');
       }
-      
+
       dayPlans.add(DayPlan(
         dayNumber: day + 1,
         date: currentDate,
@@ -362,75 +330,62 @@ class ItineraryGenerator {
         dailyDuration: dailyDuration,
         dailyCost: dailyCost,
       ));
-      
-      // Move to next day
+
       currentDate = currentDate.add(const Duration(days: 1));
     }
-    
-    // Check budget
-    if (constraints.maxBudget != null) {
-      final totalCost = dayPlans.fold<double>(0, (sum, day) => sum + day.dailyCost);
-      if (totalCost > constraints.maxBudget!) {
-        warnings.add('Total cost (₹${totalCost.toStringAsFixed(0)}) exceeds budget (₹${constraints.maxBudget})');
-      }
-    }
-    
+
     return dayPlans;
   }
 
-  /// Calculate arrival time based on previous activities
-  String _calculateArrivalTime(String previousTime, Duration elapsed) {
-    final parts = previousTime.split(' ');
-    final timeParts = parts[0].split(':');
-    int hours = int.parse(timeParts[0]);
-    int minutes = int.parse(timeParts[1]);
-    
-    if (parts[1] == 'PM' && hours != 12) hours += 12;
-    if (parts[1] == 'AM' && hours == 12) hours = 0;
-    
-    final totalMinutes = hours * 60 + minutes + elapsed.inMinutes;
-    final newHours = (totalMinutes / 60).floor() % 24;
-    final newMinutes = totalMinutes % 60;
-    
-    final period = newHours < 12 ? 'AM' : 'PM';
-    final displayHours = newHours > 12 ? newHours - 12 : (newHours == 0 ? 12 : newHours);
-    
-    return '${displayHours.toString().padLeft(2, '0')}:${newMinutes.toString().padLeft(2, '0')} $period';
+  /// Format hour/minute as "HH:MM AM/PM"
+  String _formatTime(int hour, int minute) {
+    final period = hour < 12 ? 'AM' : 'PM';
+    final h = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '${h.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
   }
 
-  /// Calculate departure time after darshan
-  String _calculateDepartureTime(String arrivalTime, Duration darshanDuration) {
-    final parts = arrivalTime.split(' ');
-    final timeParts = parts[0].split(':');
-    int hours = int.parse(timeParts[0]);
-    int minutes = int.parse(timeParts[1]);
-    
-    if (parts[1] == 'PM' && hours != 12) hours += 12;
-    if (parts[1] == 'AM' && hours == 12) hours = 0;
-    
-    final totalMinutes = hours * 60 + minutes + darshanDuration.inMinutes;
-    final newHours = (totalMinutes / 60).floor() % 24;
-    final newMinutes = totalMinutes % 60;
-    
-    final period = newHours < 12 ? 'AM' : 'PM';
-    final displayHours = newHours > 12 ? newHours - 12 : (newHours == 0 ? 12 : newHours);
-    
-    return '${displayHours.toString().padLeft(2, '0')}:${newMinutes.toString().padLeft(2, '0')} $period';
+  /// Add minutes to a "HH:MM AM/PM" string
+  String _addMinutes(String time, int minutes) {
+    final parts = time.split(' ');
+    final tp = parts[0].split(':');
+    int h = int.parse(tp[0]);
+    int m = int.parse(tp[1]);
+    if (parts[1] == 'PM' && h != 12) h += 12;
+    if (parts[1] == 'AM' && h == 12) h = 0;
+    final total = h * 60 + m + minutes;
+    final nh = (total ~/ 60) % 24;
+    final nm = total % 60;
+    return _formatTime(nh, nm);
   }
 
-  /// Estimate cost for visiting a temple
-  double _estimateTempleCost(Temple temple) {
-    // Base cost for offerings and prasadam
-    double cost = 100; // Base cost
-    
-    // Add more for popular temples
-    if (temple.rating != null && temple.rating! > 4.5) {
-      cost += 100;
-    }
-    
-    // Travel cost (simplified - would be more complex in real app)
-    cost += 50;
-    
+  double _estimateVisitCost(Temple temple) {
+    // Base: prasadam + offerings estimate
+    double cost = 150;
+    if (temple.rating != null && temple.rating! > 4.5) cost += 100;
+    // Scale by group size
+    cost *= max(1, constraints.groupSize * 0.7); // group discount factor
     return cost;
   }
+
+  double _accommodationCost() {
+    final perNight = switch (constraints.accommodation) {
+      AccommodationPref.none => 0.0,
+      AccommodationPref.budget => 600.0,
+      AccommodationPref.midRange => 1500.0,
+      AccommodationPref.luxury => 5000.0,
+    };
+    return perNight * constraints.numberOfNights;
+  }
+
+  double _travelCost(double distanceKm) {
+    return switch (constraints.travelMode) {
+      'Car' => (distanceKm / 15) * constraints.fuelPricePerLiter,
+      'Bike' => (distanceKm / 50) * constraints.fuelPricePerLiter,
+      'Bus' => distanceKm * 2.0,
+      _ => (distanceKm / 15) * constraints.fuelPricePerLiter,
+    };
+  }
+
+  double estimateTravelTime(double distanceKm) =>
+      (distanceKm / constraints.speedKmh) * 60;
 }

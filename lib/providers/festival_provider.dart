@@ -10,10 +10,7 @@ final festivalProvider = Provider<List<FestivalEvent>>((ref) {
   );
 });
 
-final templeFestivalsProvider = Provider.family<List<FestivalEvent>, String>(
-  (ref, templeId) => ref.watch(templeFestivalsDbProvider(templeId)).when(
-    data: (d) => d,
-    loading: () => [],
-    error: (e, st) => [],
-  ),
+final templeFestivalsProvider =
+    Provider.family<AsyncValue<List<FestivalEvent>>, String>(
+  (ref, templeId) => ref.watch(templeFestivalsDbProvider(templeId)),
 );

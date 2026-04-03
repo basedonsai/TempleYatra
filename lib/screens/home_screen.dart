@@ -12,6 +12,7 @@ import 'offline_pack_manager_screen.dart';
 import 'temple_list_screen.dart';
 import 'chatbot_screen.dart';
 import 'temple_calendar_screen.dart';
+import 'all_festivals_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -459,20 +460,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: const Color(0xFFE91E63),
               iconSize: iconSize,
               onTap: () {
-                final firstTemple = templesAsync.valueOrNull?.firstOrNull;
-                if (firstTemple != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TempleCalendarScreen(temple: firstTemple),
-                    ),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const TempleListScreen()),
-                  );
-                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AllFestivalsScreen()),
+                );
               },
             ),
           ],
@@ -565,20 +556,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             TextButton(
               onPressed: () {
-                final firstTemple = templesAsync.valueOrNull?.firstOrNull;
-                if (firstTemple != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TempleCalendarScreen(temple: firstTemple),
-                    ),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const TempleListScreen()),
-                  );
-                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AllFestivalsScreen()),
+                );
               },
               child: const Text('View All'),
             ),

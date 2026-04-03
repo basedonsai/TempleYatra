@@ -158,15 +158,37 @@ class _SimulationScreenState extends State<SimulationScreen> {
     final markers = <Marker>{};
     for (int i = 0; i < _controller.currentRoute.length; i++) {
       final temple = _controller.currentRoute[i];
+      final isCurrent = i == 0;
+      final isLast = i == _controller.currentRoute.length - 1;
       markers.add(
         Marker(
           markerId: MarkerId('temple_$i'),
           position: LatLng(temple.latitude, temple.longitude),
           infoWindow: InfoWindow(
-            title: temple.name,
-            snippet: '${i + 1}. ${temple.address}',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TempleDetailScreen(temple: temple))),
+            title: '${i + 1}. ${temple.name}',
+            snippet: temple.address,
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => TempleDetailScreen(temple: temple))),
           ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isCurrent
+                ? BitmapDescriptor.hueGreen
+                : isLast
+                    ? BitmapDescriptor.hueRed
+                    : BitmapDescriptor.hueOrange,
+          ),
+        ),
+      );
+    }
+    // Add grey markers for skipped temples
+    for (final temple in _controller.skippedTemples) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('skipped_${temple.id}'),
+          position: LatLng(temple.latitude, temple.longitude),
+          infoWindow: InfoWindow(title: '${temple.name} (Skipped)'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          alpha: 0.5,
         ),
       );
     }
@@ -218,8 +240,15 @@ class _SimulationScreenState extends State<SimulationScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Row(children: [
           const Text('Route Order', style: TextStyle(fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text(_controller.statusMessage, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _controller.statusMessage,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+            ),
+          ),
         ])),
         SizedBox(
           height: 160,

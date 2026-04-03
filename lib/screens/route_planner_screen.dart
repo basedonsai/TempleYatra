@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../theme/app_theme.dart';
 import '../models/temple_model.dart';
 import '../models/route_model.dart';
 import '../services/routing_engine.dart';
@@ -19,16 +20,32 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/crowd_badge.dart';
 import '../providers/festival_provider.dart';
+import '../database/db_providers.dart';
+import '../models/festival_event.dart';
 import '../services/crowd_engine.dart';
 
 class RoutePlannerScreen extends StatefulWidget {
   final List<Temple> selectedTemples;
   final GeneratedItinerary? itinerary;
+  final String travelMode;
+  final bool avoidHighways;
+  final double budget;
+  final double fuelPrice;
+  final int numberOfDays;
+  final int numberOfNights;
+  final AccommodationType accommodationType;
 
   const RoutePlannerScreen({
     super.key,
     required this.selectedTemples,
     this.itinerary,
+    this.travelMode = 'Car',
+    this.avoidHighways = false,
+    this.budget = 0,
+    this.fuelPrice = 100,
+    this.numberOfDays = 1,
+    this.numberOfNights = 0,
+    this.accommodationType = AccommodationType.budget,
   });
 
   @override
@@ -52,14 +69,21 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   DateTime? _lastReRouteTime;
   LatLng? _lastCheckedPosition;
   bool _isReRoutingInProgress = false;
+  Timer? _autoRerouteTimer;   // fires 20s after off-route detected if not dismissed
+  bool _rerouteDismissed = false; // user dismissed the banner
 
-  // Budget and vehicle state
+  // Day-by-day view
+  int _selectedDay = 0; // 0 = overview, 1..N = day tabs
+
+  // Budget and vehicle state — derived from widget props, not hardcoded
   VehicleType _selectedVehicle = VehicleType.car;
-  final AccommodationType _selectedAccommodation = AccommodationType.budget;
-  final int _numberOfNights = 0;
-  final int _numberOfDays = 1;
-  final double _maxBudget = 5000;
-  final double _fuelPrice = 100;
+
+  // Convenience getters — read from widget, never hardcoded
+  AccommodationType get _selectedAccommodation => widget.accommodationType;
+  int get _numberOfNights => widget.numberOfNights;
+  int get _numberOfDays => widget.numberOfDays;
+  double get _maxBudget => widget.budget;
+  double get _fuelPrice => widget.fuelPrice;
   
   // Budget service
   late BudgetService _budgetService;
@@ -85,6 +109,12 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   @override
   void initState() {
     super.initState();
+    // Initialise vehicle from the travel mode passed by YatraPlannerScreen
+    _selectedVehicle = switch (widget.travelMode) {
+      'Bike' => VehicleType.bike,
+      'Bus' => VehicleType.bus,
+      _ => VehicleType.car,
+    };
     _budgetService = BudgetService();
     _directionsService = DirectionsService(
       apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '',
@@ -130,6 +160,7 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   @override
   void dispose() {
     _routeCheckTimer?.cancel();
+    _autoRerouteTimer?.cancel();
     _positionSubscription?.cancel();
     super.dispose();
   }
@@ -193,7 +224,6 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
       );
       if (movement < 0.05) {
         // User hasn't moved significantly, skip check
-        _lastCheckedPosition = _currentUserPosition;
         return;
       }
     }
@@ -212,14 +242,20 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
       if (!_isOffRoute) {
         setState(() {
           _isOffRoute = true;
+          _rerouteDismissed = false;
         });
-        _triggerReRouting();
+        // Auto-reroute after 20 seconds if user doesn't dismiss
+        _autoRerouteTimer?.cancel();
+        _autoRerouteTimer = Timer(const Duration(seconds: 20), () {
+          if (mounted && _isOffRoute && !_rerouteDismissed) {
+            _triggerReRouting();
+          }
+        });
       }
     } else {
       if (_isOffRoute) {
-        setState(() {
-          _isOffRoute = false;
-        });
+        _autoRerouteTimer?.cancel();
+        setState(() { _isOffRoute = false; });
       }
     }
   }
@@ -284,6 +320,7 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
     setState(() {
       _currentUserPosition = position;
     });
+    _checkRouteDeviation();
     
     // Check if user reached a waypoint
     if (_optimizedRoute.isNotEmpty && _currentWaypointIndex < _optimizedRoute.length) {
@@ -377,24 +414,18 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
       _updateMapMarkers();
       _updateRoutePolyline();
     } on CorsException catch (e) {
-      // CORS error - this is expected when running on web localhost
-      debugPrint('CORS Error: ${e.message}');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Map directions unavailable on web browser due to CORS. Showing estimated route.'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-      // Generate estimated route as fallback
+      debugPrint('Directions CORS: ${e.message}');
+      _directionsResponse = _generateEstimatedRouteForRoute(route);
+      _updateMapMarkers();
+      _updateRoutePolyline();
+    } on GoogleMapsApiException catch (e) {
+      // REQUEST_DENIED = API not enabled in Cloud Console; fall back silently
+      debugPrint('Directions API error (${e.code}): ${e.message}');
       _directionsResponse = _generateEstimatedRouteForRoute(route);
       _updateMapMarkers();
       _updateRoutePolyline();
     } catch (e) {
       debugPrint('Error fetching directions: $e');
-      // Fallback to estimated route if API fails
       _directionsResponse = _generateEstimatedRouteForRoute(route);
       _updateMapMarkers();
       _updateRoutePolyline();
@@ -508,11 +539,14 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         ),
       );
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
-  // Kept for API compatibility — now a no-op since _updateMapMarkers handles both
-  void _updateRoutePolyline() {}
+  void _updateRoutePolyline() {} // no-op: _updateMapMarkers handles polylines
   
   void _fitMapToRoute() {
     if (_mapController == null || _optimizedRoute.isEmpty) return;
@@ -639,53 +673,79 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
 
             // Temple list below map
             if (_optimizedRoute.isNotEmpty)
-            Container(
-              height: 120,
-              color: Colors.grey[100],
+            SizedBox(
+              height: 122,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 itemCount: _optimizedRoute.length,
                 itemBuilder: (context, index) {
                   final temple = _optimizedRoute[index];
                   return Container(
                     width: 100,
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: index <= _currentWaypointIndex ? Colors.green[100] : Colors.white,
+                      color: index <= _currentWaypointIndex ? Colors.green[50] : Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: index == _currentWaypointIndex ? Colors.green : Colors.transparent,
-                        width: 2,
+                        color: index == _currentWaypointIndex
+                            ? Colors.green
+                            : AppTheme.borderColor,
+                        width: index == _currentWaypointIndex ? 2 : 1,
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        const SizedBox(height: 4),
-                        Text(
-                          temple.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 10),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(7),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${index + 1}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 3),
+                            Text(
+                              temple.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                            const SizedBox(height: 3),
+                            Consumer(builder: (context, ref, _) {
+                              final festivalsAsync =
+                                  ref.watch(templeFestivalsDbProvider(temple.id));
+                              final date =
+                                  widget.itinerary?.dayPlans.firstOrNull?.date ??
+                                      DateTime.now();
+                              return festivalsAsync.when(
+                                loading: () => const CrowdBadge(
+                                    level: CrowdLevel.low, compact: true),
+                                error: (e, _) => CrowdBadge(
+                                    level: computeCrowdLevel(temple.id, date, []),
+                                    compact: true),
+                                data: (events) => CrowdBadge(
+                                    level: computeCrowdLevel(temple.id, date, events),
+                                    compact: true),
+                              );
+                            }),
+                            if (index <= _currentWaypointIndex)
+                              const Icon(Icons.check_circle,
+                                  color: Colors.green, size: 12),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Consumer(builder: (context, ref, _) {
-                          final events = ref.watch(templeFestivalsProvider(temple.id));
-                          final date = widget.itinerary?.dayPlans.firstOrNull?.date ?? DateTime.now();
-                          final level = computeCrowdLevel(temple.id, date, events);
-                          return CrowdBadge(level: level, compact: true);
-                        }),
-                        if (index <= _currentWaypointIndex)
-                          Icon(Icons.check_circle, color: Colors.green, size: 12),
-                      ],
+                      ),
                     ),
                   );
                 },
               ),
             ),
+
+          // Day-by-day itinerary plan
+          if (widget.itinerary != null && widget.itinerary!.dayPlans.isNotEmpty)
+            _buildDayByDayPlan(),
 
           // Transport Info Panel
           if (_showTransportInfo && _transportInfo != null) _buildTransportInfoPanel(),
@@ -695,31 +755,40 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
 
           // Action buttons
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
             ),
             child: Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoadingTransport ? null : _fetchPublicTransportInfo,
-                    icon: _isLoadingTransport 
-                        ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.directions_bus),
-                    label: Text(_isLoadingTransport ? 'Loading...' : 'Get Bus Info'),
+                    icon: _isLoadingTransport
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.directions_bus, size: 18),
+                    label: Text(_isLoadingTransport ? 'Loading...' : 'Bus Info'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.maroon,
+                      side: const BorderSide(color: AppTheme.maroon),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _startSimulation,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start Simulation'),
+                    icon: const Icon(Icons.play_circle_outline, size: 18),
+                    label: const Text('Simulate'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: AppTheme.maroon,
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -732,26 +801,245 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   );
 }
 
-  Widget _buildReRoutingBanner() {
+  Widget _buildDayByDayPlan() {
+    final days = widget.itinerary!.dayPlans;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.orange[100],
-      child: Row(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange[700]),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Route deviation detected. Recalculating...',
-              style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.bold),
+          // Header with day tabs
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: Row(children: [
+              const Icon(Icons.calendar_month, color: AppTheme.maroon, size: 18),
+              const SizedBox(width: 6),
+              const Text('Travel Plan',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: AppTheme.textPrimary)),
+              const Spacer(),
+              Text('${days.length} day${days.length > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+            ]),
+          ),
+          const SizedBox(height: 10),
+
+          // Day selector tabs
+          SizedBox(
+            height: 36,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: days.length,
+              itemBuilder: (ctx, i) {
+                final selected = _selectedDay == i;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedDay = i),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected ? AppTheme.maroon : AppTheme.softGrey,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected ? AppTheme.maroon : AppTheme.borderColor,
+                      ),
+                    ),
+                    child: Text(
+                      'Day ${i + 1}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                        color: selected ? Colors.white : AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-          TextButton(
-            onPressed: _triggerReRouting,
-            child: Text('Re-route Now', style: TextStyle(color: Colors.orange[700])),
-          ),
+          const SizedBox(height: 10),
+
+          // Selected day content
+          _buildDayDetail(days[_selectedDay]),
+          const SizedBox(height: 4),
         ],
       ),
+    );
+  }
+
+  Widget _buildDayDetail(DayPlan day) {
+    final dateStr =
+        '${day.date.day}/${day.date.month}/${day.date.year}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Day summary row
+          Row(children: [
+            const Icon(Icons.today, size: 14, color: AppTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(dateStr,
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(width: 12),
+            const Icon(Icons.route, size: 14, color: AppTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text('${day.dailyDistance.toStringAsFixed(1)} km',
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(width: 12),
+            const Icon(Icons.access_time, size: 14, color: AppTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              '${day.dailyDuration.inHours}h ${day.dailyDuration.inMinutes.remainder(60)}m',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+          ]),
+          const SizedBox(height: 10),
+
+          // Visit timeline
+          ...day.visits.asMap().entries.map((entry) {
+            final i = entry.key;
+            final visit = entry.value;
+            final isLast = i == day.visits.length - 1;
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Timeline line + dot
+                  SizedBox(
+                    width: 24,
+                    child: Column(children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: i == 0
+                              ? Colors.green
+                              : (isLast ? AppTheme.maroon : AppTheme.saffron),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            color: AppTheme.borderColor,
+                          ),
+                        ),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(visit.temple.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary)),
+                          const SizedBox(height: 2),
+                          Row(children: [
+                            Text(
+                              '${visit.arrivalTime} – ${visit.departureTime}',
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                            if (visit.travelDistance > 0) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '${visit.travelDistance.toStringAsFixed(1)} km travel',
+                                style: const TextStyle(
+                                    fontSize: 11, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ]),
+                          Text(
+                            '₹${visit.estimatedCost.toStringAsFixed(0)} est.',
+                            style: const TextStyle(
+                                fontSize: 11, color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          // Day cost
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            Text(
+              'Day total: ₹${day.dailyCost.toStringAsFixed(0)}',
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.maroon),
+            ),
+          ]),
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReRoutingBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        border: Border(left: BorderSide(color: Colors.orange[600]!, width: 4)),
+      ),
+      child: Row(children: [
+        Icon(Icons.alt_route, color: Colors.orange[700], size: 22),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Off route — auto-rerouting in 20s',
+            style: TextStyle(
+                color: Colors.orange[800], fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            _autoRerouteTimer?.cancel();
+            setState(() { _isOffRoute = false; _rerouteDismissed = true; });
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.grey[700],
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          child: const Text('Dismiss', style: TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 4),
+        ElevatedButton(
+          onPressed: _triggerReRouting,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange[600],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            elevation: 0,
+          ),
+          child: const Text('Re-route Now'),
+        ),
+      ]),
     );
   }
 
@@ -767,42 +1055,44 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         children: [
           const Text(
             'Vehicle Type',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary),
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: VehicleType.values.map((vehicle) {
+              final selected = _selectedVehicle == vehicle;
               return Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    setState(() {
-                      _selectedVehicle = vehicle;
-                    });
-                    // Only recalculate budget — directions don't change by vehicle type
+                    setState(() => _selectedVehicle = vehicle);
                     _calculateBudget();
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: _selectedVehicle == vehicle ? Colors.orange[100] : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
+                      color: selected ? AppTheme.maroon : AppTheme.softGrey,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: _selectedVehicle == vehicle ? Colors.orange : Colors.transparent,
-                        width: 2,
+                        color: selected ? AppTheme.maroon : AppTheme.borderColor,
+                        width: selected ? 2 : 1,
                       ),
                     ),
                     child: Column(
                       children: [
-                        Icon(_getVehicleIcon(vehicle), color: _selectedVehicle == vehicle ? Colors.orange[700] : Colors.grey),
+                        Icon(
+                          _getVehicleIcon(vehicle),
+                          color: selected ? Colors.white : AppTheme.warmGrey,
+                          size: 22,
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           _getVehicleName(vehicle),
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: _selectedVehicle == vehicle ? FontWeight.bold : FontWeight.normal,
-                            color: _selectedVehicle == vehicle ? Colors.orange[700] : Colors.grey[700],
+                            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                            color: selected ? Colors.white : AppTheme.warmGrey,
                           ),
                         ),
                       ],
@@ -812,17 +1102,17 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 12),
-          // Show estimated cost for each vehicle type — read from cache
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: VehicleType.values.map((vehicle) {
+              final selected = _selectedVehicle == vehicle;
               return Text(
                 _vehicleFuelLabels[vehicle] ?? '',
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: _selectedVehicle == vehicle ? FontWeight.bold : FontWeight.normal,
-                  color: _selectedVehicle == vehicle ? Colors.orange[700] : Colors.grey[600],
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  color: selected ? AppTheme.maroon : Colors.grey[500],
                 ),
               );
             }).toList(),
@@ -850,25 +1140,33 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
 
   Widget _buildStatisticsRow() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatCard(
+          Expanded(child: _buildStatCard(
             icon: Icons.route,
             value: _statistics?.formattedDistance ?? '0 km',
             label: 'Distance',
-          ),
-          _buildStatCard(
+          )),
+          Container(width: 1, height: 40, color: AppTheme.borderColor),
+          Expanded(child: _buildStatCard(
             icon: Icons.access_time,
             value: _statistics?.formattedDuration ?? '0h',
             label: 'Est. Time',
-          ),
-          _buildStatCard(
+          )),
+          Container(width: 1, height: 40, color: AppTheme.borderColor),
+          Expanded(child: _buildStatCard(
             icon: Icons.location_on,
             value: '${_optimizedRoute.length}',
             label: 'Stops',
-          ),
+          )),
         ],
       ),
     );
@@ -876,26 +1174,26 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
 
   Widget _buildBudgetSummary() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.orange[50],
+        color: AppTheme.sandalwoodBeige,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.saffron.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Icon(Icons.receipt_long, color: Colors.orange),
+              const Icon(Icons.receipt_long, color: AppTheme.maroon, size: 20),
               const SizedBox(width: 8),
               const Text(
                 'Cost Breakdown',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Show bus cost for bus, fuel cost for other vehicles
+          const SizedBox(height: 10),
           if (_selectedVehicle == VehicleType.bus)
             _buildBudgetRow('Bus Ticket', _budgetEstimate!.formattedBus)
           else
@@ -903,19 +1201,19 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
           _buildBudgetRow('Tolls', _budgetEstimate!.formattedToll),
           _buildBudgetRow('Accommodation', _budgetEstimate!.formattedAccommodation),
           _buildBudgetRow('Food', _budgetEstimate!.formattedFood),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            '* Temple offerings are user-dependent and not included in estimate',
+            '* Temple offerings are user-dependent and not included',
             style: TextStyle(fontSize: 10, color: Colors.grey[600], fontStyle: FontStyle.italic),
           ),
-          const Divider(),
+          const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Total Estimate', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               Text(
                 _budgetEstimate!.formattedTotal,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.maroon),
               ),
             ],
           ),
@@ -940,17 +1238,17 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
   Widget _buildStatCard({required IconData icon, required String value, required String label, Color? valueColor}) {
     return Column(
       children: [
-        Icon(icon, color: Colors.orange[600], size: 24),
+        Icon(icon, color: AppTheme.maroon, size: 22),
         const SizedBox(height: 4),
         Text(
           value,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: valueColor ?? Colors.black,
+            fontSize: 15,
+            color: valueColor ?? AppTheme.textPrimary,
           ),
         ),
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
       ],
     );
   }
@@ -1072,84 +1370,6 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => SimulationScreen(initialRoute: _optimizedRoute),
-      ),
-    );
-  }
-}
-
-class _RouteStepCard extends StatelessWidget {
-  final Temple temple;
-  final int day;
-  final String time;
-  final bool isFirst;
-  final bool isLast;
-
-  const _RouteStepCard({
-    required this.temple,
-    required this.day,
-    required this.time,
-    required this.isFirst,
-    required this.isLast,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isFirst ? Colors.green[100] : (isLast ? Colors.red[100] : Colors.orange[100]),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '$day',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isFirst ? Colors.green[700] : (isLast ? Colors.red[700] : Colors.orange[700]),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  temple.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  temple.address,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
-                    const SizedBox(width: 4),
-                    Text(time, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
-        ],
       ),
     );
   }

@@ -293,7 +293,7 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Audio Guide', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF8B0000),
+        backgroundColor: AppTheme.maroon,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           // Language selector
@@ -333,17 +333,17 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                     width: isSmallScreen ? 150 : 180,
                     height: isSmallScreen ? 150 : 180,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF9933).withValues(alpha: 0.15),
+                      color: AppTheme.saffron.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFFF9933),
+                        color: AppTheme.saffron,
                         width: 3,
                       ),
                     ),
                     child: Icon(
                       Icons.temple_hindu,
                       size: isSmallScreen ? 60 : 80,
-                      color: const Color(0xFFFF9933),
+                      color: AppTheme.saffron,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -399,7 +399,7 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                             width: 40,
                             height: 40,
                             child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFFF9933)),
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.saffron),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -430,7 +430,7 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                             icon: const Icon(Icons.refresh),
                             label: const Text('Retry'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF9933),
+                              backgroundColor: AppTheme.saffron,
                               foregroundColor: Colors.white,
                             ),
                           ),
@@ -489,7 +489,7 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                           );
                         });
                       },
-                      activeColor: const Color(0xFFFF9933),
+                      activeColor: AppTheme.saffron,
                       inactiveColor: Colors.grey[300],
                     ),
                     Padding(
@@ -549,11 +549,11 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF9933),
+                        color: AppTheme.saffron,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF9933).withValues(alpha: 0.3),
+                            color: AppTheme.saffron.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -601,13 +601,13 @@ class _AudioGuideScreenState extends State<AudioGuideScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF8B0000).withValues(alpha: 0.1),
+        color: AppTheme.maroon.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF8B0000)),
+          Icon(icon, size: 14, color: AppTheme.maroon),
           const SizedBox(width: 6),
           Text(
             text,
