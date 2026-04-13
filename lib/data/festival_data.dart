@@ -115,19 +115,19 @@ final List<FestivalEvent> allFestivalEvents = [
 
   // Thousand Pillar Temple (note: leading space in ID)
   FestivalEvent(
-    templeId: ' Thousand Pillar Temple',
+    templeId: 'thousand_pillar_temple',
     name: 'Sankranti',
     date: DateTime(2026, 1, 14),
     crowdHint: CrowdLevel.high,
   ),
   FestivalEvent(
-    templeId: ' Thousand Pillar Temple',
+    templeId: 'thousand_pillar_temple',
     name: 'Shivratri',
     date: DateTime(2026, 2, 26),
     crowdHint: CrowdLevel.high,
   ),
   FestivalEvent(
-    templeId: ' Thousand Pillar Temple',
+    templeId: 'thousand_pillar_temple',
     name: 'Rama Navami',
     date: DateTime(2026, 3, 28),
     crowdHint: CrowdLevel.high,

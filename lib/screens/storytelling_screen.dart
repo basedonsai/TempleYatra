@@ -1,526 +1,301 @@
-/// Storytelling Screen for Temple Stories
-/// Displays culturally authentic storytelling content with audio support
-library;
-
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../models/temple_model.dart';
 import '../models/cultural_content.dart';
 import '../data/cultural_content_data.dart';
 import '../services/rag_service.dart';
-import '../services/regional_tts_service.dart';
-import '../services/language_detection_service.dart';
-import '../services/offline_cache_service.dart';
 import '../theme/app_theme.dart';
 import '../models/audio_pack.dart';
 import '../providers/audio_pack_provider.dart';
 import '../widgets/offline_badge.dart';
-import 'package:just_audio/just_audio.dart';
 
-/// Chat message model for chatbot interface
-class ChatMessage {
+class _ChatMsg {
   final String text;
   final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-  });
+  _ChatMsg(this.text, this.isUser);
 }
 
 class StorytellingScreen extends ConsumerStatefulWidget {
   final String templeId;
   final Temple? temple;
-
-  const StorytellingScreen({
-    super.key,
-    required this.templeId,
-    this.temple,
-  });
+  const StorytellingScreen({super.key, required this.templeId, this.temple});
 
   @override
   ConsumerState<StorytellingScreen> createState() => _StorytellingScreenState();
 }
 
 class _StorytellingScreenState extends ConsumerState<StorytellingScreen> {
-  // Services
-  late RAGService _ragService;
-  late RegionalTTSService _ttsService;
-  late OfflineCacheService _cacheService;
-  final LanguageDetectionService _languageService = LanguageDetectionService();
+  // ── TTS ──────────────────────────────────────────────────────────────────
+  final FlutterTts _tts = FlutterTts();
+  bool _playing = false;
+  Timer? _timer;
+  int _elapsed = 0;   // seconds
+  int _total = 0;     // estimated seconds
 
-  // Offline audio
-  bool _useOfflineAudio = false;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  // ── Content ───────────────────────────────────────────────────────────────
+  String _title = '';
+  String _text = '';
+  bool _loading = true;
+  ContentType _tab = ContentType.sthalaPuranam;
+  String _lang = 'en';
 
-  // State
-  String _selectedLanguage = 'en';
-  ContentType _selectedContentType = ContentType.sthalaPuranam;
-  bool _isLoading = false;
-  bool _isPlaying = false;
-  String _storyContent = '';
-  String _storyTitle = '';
-  Duration _currentPosition = Duration.zero;
-  Duration _totalDuration = Duration.zero;
-  String _errorMessage = '';
-   
-  // Chatbot state
-  bool _showChatbot = false;
-  final TextEditingController _questionController = TextEditingController();
-  final List<ChatMessage> _chatMessages = [];
-  bool _isTyping = false;
+  // ── Chatbot ───────────────────────────────────────────────────────────────
+  bool _showChat = false;
+  final _chatCtrl = TextEditingController();
+  final List<_ChatMsg> _msgs = [];
+  bool _thinking = false;
+  late RAGService _rag;
 
-  // Content cache
-  List<ContentType> _availableTypes = [];
-  List<String> _availableLanguages = ['en'];
+  // ── Offline pack ──────────────────────────────────────────────────────────
+  bool _useOffline = false;
+
+  // ── Language map ──────────────────────────────────────────────────────────
+  static const _locales = {
+    'en': 'en-US', 'hi': 'hi-IN', 'ta': 'ta-IN',
+    'te': 'te-IN', 'kn': 'kn-IN', 'ml': 'ml-IN',
+    'bn': 'bn-IN', 'mr': 'mr-IN', 'gu': 'gu-IN',
+  };
+  static const _langNames = {
+    'en': 'English', 'hi': 'हिन्दी', 'ta': 'தமிழ்',
+    'te': 'తెలుగు', 'kn': 'ಕನ್ನಡ', 'ml': 'മലയാളം',
+    'bn': 'বাংলা', 'mr': 'मराठी', 'gu': 'ગુજરાતી',
+  };
 
   @override
   void initState() {
     super.initState();
-    _initializeServices();
-    _loadAvailableContent();
-    _loadDefaultContent();
-  }
-
-  void _initializeServices() async {
-    final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
-    _ragService = RAGService(apiKey: apiKey);
-    _ttsService = RegionalTTSService();
-    _cacheService = OfflineCacheService();
-
-    // Set up TTS callbacks
-    _ttsService.setCallbacks(
-      onPositionChanged: (position, total) {
-        setState(() {
-          _currentPosition = position;
-          _totalDuration = total;
-        });
-      },
-      onStateChanged: (state) {
-        setState(() {
-          _isPlaying = state == TTSState.playing;
-        });
-      },
-    );
-
-    // Check if a downloaded pack is available for this temple
-    final pack = ref.read(packForTempleProvider(widget.templeId));
-    if (pack != null && pack.downloadState == DownloadState.downloaded) {
-      setState(() {
-        _useOfflineAudio = true;
-      });
-    }
-  }
-
-  void _loadAvailableContent() async {
-    final contentData = CulturalContentData();
-    final content = contentData.getContentForTemple(widget.templeId);
-    
-    setState(() {
-      _availableTypes = content.keys.toList();
-      _availableLanguages = ['en', 'hi', 'ta', 'te', 'kn', 'ml', 'bn', 'mr', 'gu'];
-    });
-  }
-
-  void _loadDefaultContent() {
+    _rag = RAGService(apiKey: dotenv.env['GROQ_API_KEY'] ?? '');
+    _setupTts();
     _loadContent();
-  }
-
-  void _loadContent() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final contentData = CulturalContentData();
-      final templeContent = contentData.getContentForTemple(widget.templeId);
-      
-      String content = '';
-      String title = '';
-      
-      if (templeContent.containsKey(_selectedContentType)) {
-        final contentItem = templeContent[_selectedContentType]!;
-        title = contentItem.title;
-        content = contentItem.getContent(_selectedLanguage);
-        
-        // Translate if needed
-        if (content.isEmpty && contentItem.content.isNotEmpty) {
-          content = contentItem.content; // Fallback to default
-        }
+    // Check offline pack
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pack = ref.read(packForTempleProvider(widget.templeId));
+      if (pack?.downloadState == DownloadState.downloaded) {
+        setState(() => _useOffline = true);
       }
-      
-      setState(() {
-        _storyTitle = title;
-        _storyContent = content;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load content: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _changeLanguage(String language) {
-    setState(() {
-      _selectedLanguage = language;
     });
-    _loadContent();
   }
 
-  void _changeContentType(ContentType type) {
-    setState(() {
-      _selectedContentType = type;
+  // ── TTS setup — dead simple ───────────────────────────────────────────────
+  void _setupTts() {
+    _tts.setStartHandler(() {
+      if (!mounted) return;
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) { _timer?.cancel(); return; }
+        setState(() {
+          _elapsed = (_elapsed + 1).clamp(0, _total);
+        });
+      });
+      setState(() => _playing = true);
     });
-    _loadContent();
+
+    _tts.setCompletionHandler(() {
+      _timer?.cancel();
+      if (!mounted) return;
+      setState(() { _playing = false; _elapsed = 0; });
+    });
+
+    _tts.setCancelHandler(() {
+      _timer?.cancel();
+      if (!mounted) return;
+      setState(() => _playing = false);
+    });
+
+    _tts.setErrorHandler((e) {
+      _timer?.cancel();
+      debugPrint('TTS error: $e');
+      if (!mounted) return;
+      setState(() => _playing = false);
+    });
   }
 
-  /// Map ContentType to ContentCategory for offline track lookup
-  ContentCategory _contentTypeToCategory(ContentType type) {
-    switch (type) {
-      case ContentType.sthalaPuranam:
-      case ContentType.history:
-        return ContentCategory.history;
-      case ContentType.ritual:
-        return ContentCategory.ritual;
-      case ContentType.significance:
-        return ContentCategory.significance;
-      default:
-        return ContentCategory.history;
-    }
+  // ── Speak ─────────────────────────────────────────────────────────────────
+  Future<void> _speak(String text) async {
+    if (text.isEmpty) return;
+    // Stop first, then configure, then speak
+    await _tts.stop();
+    await _tts.setLanguage(_locales[_lang] ?? 'en-US');
+    await _tts.setVolume(1.0);
+    await _tts.setSpeechRate(0.85);
+    await _tts.setPitch(1.0);
+    _elapsed = 0;
+    _total = (text.split(RegExp(r'\s+')).length / 2.5).ceil().clamp(5, 3600);
+    await _tts.speak(text);
   }
 
-  void _togglePlayPause() async {
-    if (!_isPlaying && _storyContent.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Content is still loading. Please wait.')),
-      );
+  Future<void> _stop() async {
+    _timer?.cancel();
+    await _tts.stop();
+    if (mounted) setState(() { _playing = false; _elapsed = 0; });
+  }
+
+  // ── Content loading ───────────────────────────────────────────────────────
+  void _loadContent() async {
+    await _stop();
+    setState(() => _loading = true);
+    final data = CulturalContentData()
+        .getContentForTemple(widget.templeId);
+    final item = data[_tab];
+    setState(() {
+      _title = item?.title ?? '';
+      _text = item?.content ?? '';
+      _loading = false;
+    });
+  }
+
+  // ── Play/pause toggle ─────────────────────────────────────────────────────
+  Future<void> _togglePlay() async {
+    if (_text.isEmpty) return;
+
+    if (_playing) {
+      await _stop();
       return;
     }
 
-    if (_useOfflineAudio) {
-      // Offline audio branch
+    // If offline pack has a text file for this category, use that
+    if (_useOffline) {
       final pack = ref.read(packForTempleProvider(widget.templeId));
-      if (pack != null && pack.downloadState == DownloadState.downloaded) {
-        final category = _contentTypeToCategory(_selectedContentType);
+      if (pack?.downloadState == DownloadState.downloaded) {
+        final catMap = {
+          ContentType.sthalaPuranam: ContentCategory.history,
+          ContentType.history: ContentCategory.history,
+          ContentType.ritual: ContentCategory.ritual,
+          ContentType.significance: ContentCategory.significance,
+        };
+        final cat = catMap[_tab] ?? ContentCategory.history;
         AudioTrack? track;
-        try {
-          track = pack.tracks.firstWhere((t) => t.category == category);
-        } catch (_) {
-          // Fall back to first track if no match
-          if (pack.tracks.isNotEmpty) {
-            track = pack.tracks.first;
-          }
-        }
+        try { track = pack!.tracks.firstWhere((t) => t.category == cat); }
+        catch (_) { track = pack?.tracks.firstOrNull; }
 
-        if (track != null && track.localPath != null) {
-          if (_isPlaying) {
-            await _audioPlayer.pause();
-            setState(() => _isPlaying = false);
-          } else {
-            await _audioPlayer.setFilePath(track.localPath!);
-            await _audioPlayer.play();
-            setState(() => _isPlaying = true);
+        if (track?.localPath != null) {
+          final f = File(track!.localPath!);
+          if (f.existsSync() && f.lengthSync() > 10) {
+            final offlineText = await f.readAsString();
+            if (offlineText.isNotEmpty) {
+              await _speak(offlineText);
+              return;
+            }
           }
-          return;
         }
       }
-      // If no local path found, fall through to TTS
     }
 
-    // TTS branch
-    if (_isPlaying) {
-      await _ttsService.pause();
-    } else {
-      await _ttsService.speak(
-        text: _storyContent,
-        languageCode: _selectedLanguage,
-      );
-    }
+    // Live TTS from screen content
+    await _speak(_text);
   }
 
-  /// Handle user question
-  Future<void> _askQuestion() async {
-    final question = _questionController.text.trim();
-    if (question.isEmpty) return;
-
-    // Add user message
+  // ── Chatbot ───────────────────────────────────────────────────────────────
+  Future<void> _ask() async {
+    final q = _chatCtrl.text.trim();
+    if (q.isEmpty) return;
     setState(() {
-      _chatMessages.add(ChatMessage(
-        text: question,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
-      _isTyping = true;
+      _msgs.add(_ChatMsg(q, true));
+      _thinking = true;
     });
-
-    _questionController.clear();
-
+    _chatCtrl.clear();
     try {
-      // Get response from RAG
-      final response = await _ragService.generateResponse(
-        query: question,
+      final ans = await _rag.generateResponse(
+        query: q,
         templeId: widget.templeId,
-        userLanguage: _selectedLanguage,
+        userLanguage: _lang,
+        templeName: widget.temple?.name,
       );
-
-      setState(() {
-        _chatMessages.add(ChatMessage(
-          text: response,
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
-        _isTyping = false;
+      if (mounted) setState(() { _msgs.add(_ChatMsg(ans, false)); _thinking = false; });
+    } catch (_) {
+      if (mounted) setState(() {
+        _msgs.add(_ChatMsg('Sorry, could not get an answer. Try again.', false));
+        _thinking = false;
       });
-    } catch (e) {
-      setState(() {
-        _chatMessages.add(ChatMessage(
-          text: 'Sorry, I couldn\'t find an answer. Please try again.',
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
-        _isTyping = false;
-      });
-    }
-  }
-
-  /// Toggle chatbot visibility
-  void _toggleChatbot() {
-    setState(() {
-      _showChatbot = !_showChatbot;
-    });
-  }
-
-  void _stopAudio() async {
-    if (_useOfflineAudio) {
-      await _audioPlayer.stop();
-      setState(() => _isPlaying = false);
-    } else {
-      await _ttsService.stop();
     }
   }
 
   @override
   void dispose() {
-    _ttsService.dispose();
-    _audioPlayer.dispose();
+    _timer?.cancel();
+    _tts.stop();
+    _chatCtrl.dispose();
     super.dispose();
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showChatbot ? 'Ask About ${widget.temple?.name ?? 'Temple'}' : '${widget.temple?.name ?? 'Temple'} Stories'),
+        title: Text(_showChat
+            ? 'Ask about ${widget.temple?.name ?? 'Temple'}'
+            : '${widget.temple?.name ?? 'Temple'} Stories'),
         actions: [
-          _buildLanguageSelector(),
-          _buildOfflineAudioToggle(),
-          _buildOfflineIndicator(),
-          _buildChatbotToggle(),
+          // Language picker
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.language),
+            onSelected: (l) { setState(() => _lang = l); _loadContent(); },
+            itemBuilder: (_) => _langNames.entries.map((e) => PopupMenuItem(
+              value: e.key,
+              child: Row(children: [
+                Text(e.value),
+                const Spacer(),
+                if (e.key == _lang) const Icon(Icons.check, size: 16, color: Colors.green),
+              ]),
+            )).toList(),
+          ),
+          // Offline badge
+          Consumer(builder: (_, ref, __) {
+            final pack = ref.watch(packForTempleProvider(widget.templeId));
+            if (pack?.downloadState != DownloadState.downloaded) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: OfflineBadge(packId: pack!.packId),
+            );
+          }),
+          // Chat toggle
+          IconButton(
+            icon: Icon(_showChat ? Icons.menu_book : Icons.chat_bubble_outline),
+            onPressed: () => setState(() => _showChat = !_showChat),
+          ),
         ],
       ),
-      body: _showChatbot ? _buildChatbotInterface() : _buildStorytellingInterface(),
+      body: _showChat ? _buildChat() : _buildStory(),
     );
   }
 
-  /// Build language selector dropdown
-  Widget _buildLanguageSelector() {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.language),
-      onSelected: _changeLanguage,
-      itemBuilder: (context) => _availableLanguages.map((lang) {
-        return PopupMenuItem<String>(
-          value: lang,
-          child: Row(
-            children: [
-              Text(_languageService.getDisplayName(lang)),
-              if (lang == _selectedLanguage)
-                const Icon(Icons.check, size: 16),
-            ],
-          ),
-        );
-      }).toList(),
-    );
+  // ── Story view ────────────────────────────────────────────────────────────
+  Widget _buildStory() {
+    return Column(children: [
+      _buildTabs(),
+      Expanded(child: _buildContent()),
+      _buildPlayer(),
+    ]);
   }
 
-  /// Build offline audio toggle button (shown only when a downloaded pack exists)
-  Widget _buildOfflineAudioToggle() {
-    return Consumer(
-      builder: (context, ref, _) {
-        final pack = ref.watch(packForTempleProvider(widget.templeId));
-        final isDownloaded = pack != null && pack.downloadState == DownloadState.downloaded;
-        if (!isDownloaded) return const SizedBox.shrink();
-        return IconButton(
-          icon: Icon(
-            _useOfflineAudio ? Icons.headphones : Icons.record_voice_over,
-          ),
-          tooltip: _useOfflineAudio ? 'Use TTS' : 'Use Offline Audio',
-          onPressed: () {
-            setState(() {
-              _useOfflineAudio = !_useOfflineAudio;
-            });
-          },
-        );
-      },
-    );
-  }
-
-  /// Build offline indicator
-  Widget _buildOfflineIndicator() {
-    return Consumer(
-      builder: (context, ref, _) {
-        final pack = ref.watch(packForTempleProvider(widget.templeId));
-        if (pack == null || pack.downloadState != DownloadState.downloaded) {
-          return const SizedBox.shrink();
-        }
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: OfflineBadge(packId: pack.packId),
-        );
-      },
-    );
-  }
-
-  /// Build chatbot toggle button
-  Widget _buildChatbotToggle() {
-    return IconButton(
-      icon: Icon(_showChatbot ? Icons.menu_book : Icons.chat_bubble_outline),
-      tooltip: _showChatbot ? 'View Stories' : 'Ask Questions',
-      onPressed: _toggleChatbot,
-    );
-  }
-
-  /// Build chatbot interface
-  Widget _buildChatbotInterface() {
-    return Column(
-      children: [
-        // Welcome message
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: AppTheme.saffron.withValues(alpha: 0.1),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.saffron,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Ask me anything about this temple - its history, rituals, mantras, traditions, and more!',
-                  style: TextStyle(fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Chat messages
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _chatMessages.length + (_isTyping ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index >= _chatMessages.length) {
-                return _buildTypingIndicator();
-              }
-              return _buildChatMessage(_chatMessages[index]);
-            },
-          ),
-        ),
-        
-        // Input field
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _questionController,
-                  decoration: InputDecoration(
-                    hintText: 'Ask a question about this temple...',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  maxLines: 3,
-                  onSubmitted: (_) => _askQuestion(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.saffron,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: _isTyping ? null : _askQuestion,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Build content type selector
-  Widget _buildContentTypeSelector() {
-    final contentTypes = [
-      (ContentType.sthalaPuranam, 'Sthala Puranam'),
+  Widget _buildTabs() {
+    const tabs = [
+      (ContentType.sthalaPuranam, 'History'),
       (ContentType.ritual, 'Rituals'),
       (ContentType.mantra, 'Mantras'),
       (ContentType.significance, 'Significance'),
-      (ContentType.history, 'History'),
       (ContentType.architecture, 'Architecture'),
     ];
-
     return SizedBox(
       height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        children: contentTypes.map((type) {
-          final (contentType, label) = type;
-          final isSelected = _selectedContentType == contentType;
-          
+        children: tabs.map((t) {
+          final selected = _tab == t.$1;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: FilterChip(
-              label: Text(label),
-              selected: isSelected,
+              label: Text(t.$2),
+              selected: selected,
               selectedColor: AppTheme.saffron.withValues(alpha: 0.2),
               checkmarkColor: AppTheme.saffron,
-              labelStyle: TextStyle(
-                color: isSelected ? AppTheme.saffron : Colors.black87,
-              ),
-              onSelected: (_) => _changeContentType(contentType),
+              onSelected: (_) { setState(() => _tab = t.$1); _loadContent(); },
             ),
           );
         }).toList(),
@@ -528,237 +303,186 @@ class _StorytellingScreenState extends ConsumerState<StorytellingScreen> {
     );
   }
 
-  /// Build chat message bubble
-  Widget _buildChatMessage(ChatMessage message) {
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: message.isUser ? AppTheme.saffron : Colors.grey[200],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.text,
-              style: TextStyle(
-                color: message.isUser ? Colors.white : Colors.black87,
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _formatTime(message.timestamp),
-              style: TextStyle(
-                color: message.isUser ? Colors.white70 : Colors.grey[500],
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildContent() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_text.isEmpty) return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.menu_book, size: 64, color: Colors.grey[400]),
+        const SizedBox(height: 12),
+        Text('No content available', style: TextStyle(color: Colors.grey[600])),
+      ]),
     );
-  }
-
-  /// Build typing indicator
-  Widget _buildTypingIndicator() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Thinking...',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Format timestamp
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-
-  /// Build storytelling interface
-  Widget _buildStorytellingInterface() {
-    return Column(
-      children: [
-        _buildContentTypeSelector(),
-        Expanded(child: _buildStorytellingContent()),
-        _buildAudioControls(),
-      ],
-    );
-  }
-
-  /// Build storytelling content display
-  Widget _buildStorytellingContent() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_storyContent.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.menu_book, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No content available',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      );
-    }
-
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title
-          Text(
-            _storyTitle,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Content
-          Text(
-            _storyContent,
-            style: const TextStyle(
-              fontSize: 16,
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Source attribution
-          const Text(
-            'Information sourced from temple traditions and verified sources.',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_title.isNotEmpty) ...[
+          Text(_title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
         ],
-      ),
+        Text(_text, style: const TextStyle(fontSize: 16, height: 1.6)),
+        const SizedBox(height: 16),
+        Text(
+          'Sourced from temple traditions and verified records.',
+          style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
+        ),
+      ]),
     );
   }
 
-  Widget _buildAudioControls() {
+  Widget _buildPlayer() {
+    final progress = _total > 0 ? (_elapsed / _total).clamp(0.0, 1.0) : 0.0;
+    String fmt(int s) {
+      final m = s ~/ 60;
+      final sec = s % 60;
+      return '${m.toString().padLeft(2,'0')}:${sec.toString().padLeft(2,'0')}';
+    }
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
       ),
-      child: Column(
-        children: [
-          // Progress bar
-          Column(
-            children: [
-              Slider(
-                value: _totalDuration.inSeconds > 0
-                    ? _currentPosition.inSeconds / _totalDuration.inSeconds
-                    : 0,
-                onChanged: (_) {}, // TTS doesn't support seeking
-                activeColor: AppTheme.saffron,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_formatDuration(_currentPosition)),
-                    Text(_formatDuration(_totalDuration)),
-                  ],
-                ),
-              ),
-            ],
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
+          child: Slider(value: progress, onChanged: null, activeColor: AppTheme.saffron),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(fmt(_elapsed), style: const TextStyle(fontSize: 12)),
+            Text(fmt(_total), style: const TextStyle(fontSize: 12)),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          // Stop
+          IconButton(
+            icon: const Icon(Icons.stop_rounded),
+            onPressed: _playing ? _stop : null,
+            color: Colors.grey[700],
           ),
-          const SizedBox(height: 16),
-          // Playback controls
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.replay_10),
-                onPressed: _isPlaying ? () {} : null, // Replay not supported for streaming
+          const SizedBox(width: 12),
+          // Play / Pause
+          GestureDetector(
+            onTap: _text.isEmpty ? null : _togglePlay,
+            child: Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                color: _text.isEmpty ? Colors.grey : AppTheme.saffron,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: AppTheme.saffron.withValues(alpha: 0.35), blurRadius: 12)],
               ),
-              const SizedBox(width: 16),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppTheme.saffron,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.saffron.withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 36,
-                    color: Colors.white,
-                  ),
-                  onPressed: _togglePlayPause,
-                ),
-              ),
-              const SizedBox(width: 16),
-              IconButton(
-                icon: const Icon(Icons.stop),
-                onPressed: _isPlaying ? _stopAudio : null,
-              ),
-              IconButton(
-                icon: const Icon(Icons.speed),
-                tooltip: 'Audio Quality',
-                onPressed: () {}, // Quality settings could be added
-              ),
-            ],
+              child: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  size: 38, color: Colors.white),
+            ),
           ),
-        ],
+          const SizedBox(width: 12),
+          // Offline toggle (only when pack downloaded)
+          Consumer(builder: (_, ref, __) {
+            final pack = ref.watch(packForTempleProvider(widget.templeId));
+            if (pack?.downloadState != DownloadState.downloaded) return const SizedBox(width: 48);
+            return IconButton(
+              icon: Icon(_useOffline ? Icons.headphones : Icons.record_voice_over),
+              tooltip: _useOffline ? 'Using offline pack' : 'Using live TTS',
+              color: _useOffline ? AppTheme.saffron : Colors.grey[600],
+              onPressed: () => setState(() => _useOffline = !_useOffline),
+            );
+          }),
+        ]),
+      ]),
+    );
+  }
+
+  // ── Chat view ─────────────────────────────────────────────────────────────
+  Widget _buildChat() {
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        color: AppTheme.saffron.withValues(alpha: 0.08),
+        child: Row(children: [
+          CircleAvatar(backgroundColor: AppTheme.saffron, radius: 16,
+              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16)),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Ask anything about this temple — history, rituals, mantras, festivals.',
+              style: TextStyle(fontSize: 13))),
+        ]),
+      ),
+      Expanded(
+        child: ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: _msgs.length + (_thinking ? 1 : 0),
+          itemBuilder: (_, i) {
+            if (i == _msgs.length) return _bubble('Thinking…', false, thinking: true);
+            return _bubble(_msgs[i].text, _msgs[i].isUser);
+          },
+        ),
+      ),
+      _buildChatInput(),
+    ]);
+  }
+
+  Widget _bubble(String text, bool isUser, {bool thinking = false}) {
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        decoration: BoxDecoration(
+          color: isUser ? AppTheme.saffron : Colors.grey[100],
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isUser ? 16 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 16),
+          ),
+        ),
+        child: thinking
+            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey[500])),
+                const SizedBox(width: 8),
+                Text('Thinking…', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              ])
+            : Text(text, style: TextStyle(color: isUser ? Colors.white : Colors.black87, fontSize: 14)),
       ),
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  Widget _buildChatInput() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 6, offset: const Offset(0, -2))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: TextField(
+              controller: _chatCtrl,
+              minLines: 1, maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Ask about ${widget.temple?.name?.split(' ').first ?? 'temple'}…',
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                filled: true, fillColor: Colors.grey[100],
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+              onSubmitted: (_) => _ask(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: _thinking ? null : _ask,
+            icon: const Icon(Icons.send_rounded),
+            color: AppTheme.saffron,
+          ),
+        ]),
+      ),
+    );
   }
 }

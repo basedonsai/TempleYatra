@@ -61,6 +61,12 @@ dependencies:
   # Device file paths
   path_provider: ^2.1.2
   
+  # Local database
+  sqflite: ^2.3.0
+
+  # UUID generation for user identity
+  uuid: ^4.4.0
+
   # The following adds the Cupertino Icons font
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.5
@@ -70,6 +76,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   json_serializable: ^6.7.1
+  sqflite_common_ffi: ^2.3.0
 
 flutter:
   uses-material-design: true

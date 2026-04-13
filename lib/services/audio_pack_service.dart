@@ -1,20 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/audio_pack_data.dart';
+import '../data/cultural_content_data.dart';
 import '../models/audio_pack.dart';
+import '../models/cultural_content.dart';
 
 class CancellationToken {
   bool _isCancelled = false;
-
   bool get isCancelled => _isCancelled;
-
-  void cancel() {
-    _isCancelled = true;
-  }
+  void cancel() => _isCancelled = true;
 }
 
 class AudioPackService {
@@ -22,7 +19,6 @@ class AudioPackService {
   final Future<Directory> Function() _getDocsDir;
 
   List<AudioPack> _packs;
-
   static const String _prefsKey = 'audio_pack_states';
 
   AudioPackService({
@@ -46,6 +42,34 @@ class AudioPackService {
     _packs = _packs.map((p) => p.packId == updated.packId ? updated : p).toList();
   }
 
+  /// Maps a ContentCategory to the matching ContentType for knowledge base lookup
+  static ContentType _categoryToContentType(ContentCategory cat) {
+    switch (cat) {
+      case ContentCategory.history:
+        return ContentType.sthalaPuranam;
+      case ContentCategory.ritual:
+        return ContentType.ritual;
+      case ContentCategory.significance:
+        return ContentType.significance;
+      case ContentCategory.travelTips:
+        return ContentType.sthalaPuranam; // fallback
+    }
+  }
+
+  /// Fetches the text content for a track from the cultural knowledge base.
+  /// Falls back to the track title + temple description if no content found.
+  static String _getTextForTrack(AudioTrack track, String templeId) {
+    final type = _categoryToContentType(track.category);
+    final contentList = getContentByType(templeId, type);
+
+    if (contentList.isNotEmpty) {
+      return contentList.first.content;
+    }
+
+    // Fallback: use track title as minimal content
+    return '${track.title}. This audio guide covers information about the temple.';
+  }
+
   Future<void> downloadPack(
     String packId,
     void Function(double) onProgress,
@@ -54,7 +78,6 @@ class AudioPackService {
     final pack = _findPack(packId);
     if (pack == null) return;
 
-    // Transition to downloading
     _updatePack(pack.copyWith(
       downloadState: DownloadState.downloading,
       downloadProgress: 0.0,
@@ -66,12 +89,9 @@ class AudioPackService {
       final packDir = Directory('${dir.path}/audio_packs/$packId');
       await packDir.create(recursive: true);
 
-      int completedBytes = 0;
       final updatedTracks = List<AudioTrack>.from(pack.tracks);
 
       for (int i = 0; i < pack.tracks.length; i++) {
-        final track = pack.tracks[i];
-
         if (token.isCancelled) {
           await packDir.delete(recursive: true);
           _updatePack(_findPack(packId)!.copyWith(
@@ -82,21 +102,24 @@ class AudioPackService {
           return;
         }
 
-        final delayMs = track.fileSizeBytes ~/ 50000;
-        await Future.delayed(Duration(milliseconds: delayMs));
+        final track = pack.tracks[i];
 
-        final path = '${packDir.path}/${track.trackId}.aac';
-        await File(path).writeAsBytes(Uint8List(512));
+        // Write the actual text content — TTS will read this at playback time
+        final text = _getTextForTrack(track, pack.templeId);
+        final path = '${packDir.path}/${track.trackId}.txt';
+        await File(path).writeAsString(text, encoding: utf8);
+
+        // Small simulated delay so progress bar is visible
+        await Future.delayed(const Duration(milliseconds: 300));
 
         updatedTracks[i] = track.copyWith(localPath: path);
-        completedBytes += track.fileSizeBytes;
-        final progress = completedBytes / pack.totalSizeBytes;
+
+        final progress = (i + 1) / pack.tracks.length;
         _updatePack(_findPack(packId)!.copyWith(downloadProgress: progress));
         onProgress(progress);
       }
 
       onProgress(1.0);
-
       _updatePack(_findPack(packId)!.copyWith(
         downloadState: DownloadState.downloaded,
         downloadProgress: 1.0,
@@ -135,11 +158,8 @@ class AudioPackService {
       if (await packDir.exists()) {
         await packDir.delete(recursive: true);
       }
-    } catch (_) {
-      // Ignore errors during deletion
-    }
+    } catch (_) {}
 
-    // Reset tracks' localPath (copyWith can't set to null, so reconstruct)
     final resetTracks = pack.tracks
         .map((t) => AudioTrack(
               trackId: t.trackId,
@@ -147,7 +167,6 @@ class AudioPackService {
               category: t.category,
               durationSeconds: t.durationSeconds,
               fileSizeBytes: t.fileSizeBytes,
-              // localPath intentionally omitted (null)
             ))
         .toList();
     _updatePack(pack.copyWith(
@@ -160,11 +179,8 @@ class AudioPackService {
     final pack = _findPack(packId);
     if (pack == null) return false;
     if (pack.downloadState != DownloadState.downloaded) return false;
-
-    return pack.tracks.every((t) {
-      if (t.localPath == null) return false;
-      return File(t.localPath!).existsSync();
-    });
+    return pack.tracks.every((t) =>
+        t.localPath != null && File(t.localPath!).existsSync());
   }
 
   int getTotalUsedStorageBytes() {
@@ -202,13 +218,11 @@ class AudioPackService {
       if (persisted == null) continue;
 
       if (persisted == DownloadState.downloaded) {
-        // Verify all files exist by reconstructing expected paths
         final dir = await _getDocsDir();
         final packDirPath = '${dir.path}/audio_packs/${pack.packId}';
 
         final allExist = pack.tracks.every((t) {
-          // Use stored localPath if available, otherwise reconstruct expected path
-          final path = t.localPath ?? '$packDirPath/${t.trackId}.aac';
+          final path = t.localPath ?? '$packDirPath/${t.trackId}.txt';
           return File(path).existsSync();
         });
 
@@ -218,10 +232,9 @@ class AudioPackService {
             errorMessage: 'Audio files missing. Tap Retry.',
           ));
         } else {
-          // Restore localPaths on tracks
           final restoredTracks = pack.tracks
               .map((t) => t.copyWith(
-                    localPath: t.localPath ?? '$packDirPath/${t.trackId}.aac',
+                    localPath: t.localPath ?? '$packDirPath/${t.trackId}.txt',
                   ))
               .toList();
           _updatePack(pack.copyWith(

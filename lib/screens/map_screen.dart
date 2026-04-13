@@ -1,21 +1,22 @@
 // Interactive map screen showing all temples using Google Maps
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../data/temples_data.dart';
+import '../database/db_providers.dart';
 import '../models/temple_model.dart';
 import '../services/directions_service.dart';
 import 'temple_detail_screen.dart';
 import 'route_planner_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-class MapScreen extends StatefulWidget {
+class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen> {
   GoogleMapController? _mapController;
   final List<Temple> _selectedTemples = [];
   final Set<Marker> _markers = {};
@@ -24,6 +25,7 @@ class _MapScreenState extends State<MapScreen> {
   DirectionsResponse? _directionsResponse;
   bool _isLoadingRoute = false;
   int _routeRequestId = 0;
+  bool _markersLoaded = false;
 
   _MapScreenState()
       : _directionsService = DirectionsService(
@@ -33,13 +35,13 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTempleMarkers();
+    // _loadTempleMarkersFromList is called from build once allTemplesDbProvider resolves
   }
 
-  void _loadTempleMarkers() {
-    _markers.clear();
-    for (int i = 0; i < allTemples.length; i++) {
-      final temple = allTemples[i];
+  void _loadTempleMarkersFromList(List<Temple> temples) {
+    // Build markers from the provided list — called once when provider data arrives
+    for (int i = 0; i < temples.length; i++) {
+      final temple = temples[i];
       _markers.add(
         Marker(
           markerId: MarkerId(temple.id),
@@ -57,6 +59,7 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
     setState(() {});
+    _fitAllTemples(temples);
   }
 
   void _toggleTempleSelection(Temple temple) {
@@ -135,6 +138,20 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final templesAsync = ref.watch(allTemplesDbProvider);
+
+    // When data arrives for the first time, load markers via postFrameCallback
+    templesAsync.whenData((temples) {
+      if (!_markersLoaded) {
+        _markersLoaded = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _loadTempleMarkersFromList(temples);
+        });
+      }
+    });
+
+    final temples = templesAsync.valueOrNull ?? [];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Temple Map'),
@@ -167,7 +184,10 @@ class _MapScreenState extends State<MapScreen> {
             polylines: _polylines,
             onMapCreated: (controller) {
               _mapController = controller;
-              _fitAllTemples();
+              // Fit temples if data is already available when map is created
+              if (temples.isNotEmpty) {
+                _fitAllTemples(temples);
+              }
             },
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
@@ -221,52 +241,56 @@ class _MapScreenState extends State<MapScreen> {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
                 ),
-                child: Column(children: [
-                  Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(children: [
-                      const Text('All Temples', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      Text('${allTemples.length} temples', style: TextStyle(color: Colors.grey[600])),
-                    ]),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: scrollController,
-                      scrollDirection: Axis.horizontal,
+                child: templesAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error loading temples: $e')),
+                  data: (temples) => Column(children: [
+                    Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                    Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: allTemples.length,
-                      itemBuilder: (context, index) {
-                        final temple = allTemples[index];
-                        final isSelected = _selectedTemples.contains(temple);
-                        return GestureDetector(
-                          onTap: () {
-                            _mapController?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(temple.latitude, temple.longitude), 14));
-                          },
-                          child: Container(
-                            width: 140,
-                            margin: const EdgeInsets.only(right: 12),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isSelected ? Colors.orange[100] : Colors.grey[100],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isSelected ? Colors.orange : Colors.transparent, width: 2),
-                            ),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.temple_hindu, color: isSelected ? Colors.orange : Colors.grey),
-                              const SizedBox(height: 4),
-                              Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                              const SizedBox(height: 2),
-                              Text(temple.rating?.toStringAsFixed(1) ?? 'N/A', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                            ]),
-                          ),
-                        );
-                      },
+                      child: Row(children: [
+                        const Text('All Temples', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        Text('${temples.length} temples', style: TextStyle(color: Colors.grey[600])),
+                      ]),
                     ),
-                  ),
-                ]),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: temples.length,
+                        itemBuilder: (context, index) {
+                          final temple = temples[index];
+                          final isSelected = _selectedTemples.contains(temple);
+                          return GestureDetector(
+                            onTap: () {
+                              _mapController?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(temple.latitude, temple.longitude), 14));
+                            },
+                            child: Container(
+                              width: 140,
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.orange[100] : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: isSelected ? Colors.orange : Colors.transparent, width: 2),
+                              ),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.temple_hindu, color: isSelected ? Colors.orange : Colors.grey),
+                                const SizedBox(height: 4),
+                                Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                                const SizedBox(height: 2),
+                                Text(temple.rating?.toStringAsFixed(1) ?? 'N/A', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              ]),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ]),
+                ),
               );
             },
           ),
@@ -290,16 +314,16 @@ class _MapScreenState extends State<MapScreen> {
     _mapController?.animateCamera(CameraUpdate.newLatLngZoom(const LatLng(17.3850, 78.4867), 12));
   }
 
-  void _fitAllTemples() {
-    if (allTemples.isEmpty) return;
+  void _fitAllTemples(List<Temple> temples) {
+    if (temples.isEmpty) return;
     final bounds = LatLngBounds(
       southwest: LatLng(
-        allTemples.map((t) => t.latitude).reduce((a, b) => a < b ? a : b) - 0.02,
-        allTemples.map((t) => t.longitude).reduce((a, b) => a < b ? a : b) - 0.02,
+        temples.map((t) => t.latitude).reduce((a, b) => a < b ? a : b) - 0.02,
+        temples.map((t) => t.longitude).reduce((a, b) => a < b ? a : b) - 0.02,
       ),
       northeast: LatLng(
-        allTemples.map((t) => t.latitude).reduce((a, b) => a > b ? a : b) + 0.02,
-        allTemples.map((t) => t.longitude).reduce((a, b) => a > b ? a : b) + 0.02,
+        temples.map((t) => t.latitude).reduce((a, b) => a > b ? a : b) + 0.02,
+        temples.map((t) => t.longitude).reduce((a, b) => a > b ? a : b) + 0.02,
       ),
     );
     _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));

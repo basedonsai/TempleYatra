@@ -222,8 +222,10 @@ class SmartSchedulerService {
       for (int vi = 0; vi < day.visits.length; vi++) {
         final visit = day.visits[vi];
 
-        // Transport cost for this leg
-        final legCost = _legTransportCost(visit.travelDistanceKm, request.travelMode);
+        final legCost = _legTransportCost(
+          visit.travelDistanceKm, request.travelMode,
+          fuelPricePerLiter: request.fuelPricePerLiter,
+        );
         dayTransport += legCost;
         totalTransport += legCost;
 
@@ -231,7 +233,6 @@ class SmartSchedulerService {
         const templeCost = 150.0;
         totalTempleSpecific += templeCost;
 
-        // Update visit with travelCost
         day.visits[vi] = SmartTempleVisit(
           temple: visit.temple,
           order: visit.order,
@@ -244,8 +245,7 @@ class SmartSchedulerService {
         );
       }
 
-      // Rebuild dayCost
-      final dayFood = 500.0;
+      final dayFood = request.foodBudgetPerDay;
       final dayTempleSpecific = day.visits.length * 150.0;
       final dayTotal = dayTransport + dayFood + dayTempleSpecific;
 
@@ -264,22 +264,15 @@ class SmartSchedulerService {
       );
     }
 
-    // Accommodation: (numberOfDays - 1) nights, default Budget tier
-    final nights = (request.numberOfDays - 1).clamp(0, request.numberOfDays);
-    final accommodationType = AccommodationType.budget;
-    final totalStay =
-        nights * (_accommodationRate[accommodationType] ?? 500.0);
+    // Accommodation: use request's accommodation type and nights
+    final nights = request.numberOfNights.clamp(0, request.numberOfDays);
+    final totalStay = nights * (_accommodationRate[request.accommodationType] ?? 500.0);
 
-    // Food: numberOfDays × ₹500
-    final totalFood = request.numberOfDays * 500.0;
+    final totalFood = request.foodBudgetPerDay * request.numberOfDays;
+    final totalMisc = request.miscBudgetPerDay * request.numberOfDays;
 
-    // Misc: numberOfDays × ₹200
-    final totalMisc = request.numberOfDays * 200.0;
+    final total = totalTransport + totalStay + totalFood + totalTempleSpecific + totalMisc;
 
-    final total =
-        totalTransport + totalStay + totalFood + totalTempleSpecific + totalMisc;
-
-    // Budget warning
     if (request.maxBudget > 0 && total > request.maxBudget) {
       final excess = (total - request.maxBudget).toStringAsFixed(0);
       warnings.add('Estimated cost exceeds budget by ₹$excess');
@@ -333,17 +326,15 @@ class SmartSchedulerService {
   }
 
   /// Transport cost for a single leg (fuel or bus fare).
-  double _legTransportCost(double distKm, VehicleType mode) {
+  double _legTransportCost(double distKm, VehicleType mode,
+      {double fuelPricePerLiter = 100.0}) {
     if (distKm <= 0) return 0.0;
     switch (mode) {
       case VehicleType.car:
-        // Fuel: distKm / 15 km/L * ₹100/L
-        return (distKm / 15.0) * 100.0;
+        return (distKm / 15.0) * fuelPricePerLiter;
       case VehicleType.bike:
-        // Fuel: distKm / 50 km/L * ₹100/L
-        return (distKm / 50.0) * 100.0;
+        return (distKm / 50.0) * fuelPricePerLiter;
       case VehicleType.bus:
-        // Bus fare: ₹1.5/km (government bus minimum)
         return distKm * 1.5;
     }
   }

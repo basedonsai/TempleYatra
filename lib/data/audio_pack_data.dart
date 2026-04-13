@@ -115,7 +115,7 @@ const List<AudioPack> allAudioPacks = [
   ),
   AudioPack(
     packId: 'pack_birla_mandir',
-    templeId: 'birla_mandir',
+    templeId: 'birla_mandir_hyderabad',
     title: 'Birla Mandir Audio Pack',
     description:
         'Discover the beauty and devotion of the iconic white marble Birla Mandir perched atop a rocky hill in Hyderabad.',
@@ -125,10 +125,10 @@ const List<AudioPack> allAudioPacks = [
   ),
   AudioPack(
     packId: 'pack_jagannath_puri',
-    templeId: 'jagannath_puri',
+    templeId: 'jagannath_hyderabad',
     title: 'Jagannath Temple Audio Pack',
     description:
-        'Journey through the sacred stories, grand rituals, and travel wisdom of the ancient Jagannath Temple in Puri.',
+        'Journey through the sacred stories, grand rituals, and travel wisdom of the ancient Jagannath Temple in Hyderabad.',
     totalSizeBytes: 9_300_000,
     tracks: _jagannathTracks,
     downloadState: DownloadState.notDownloaded,

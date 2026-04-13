@@ -1,0 +1,216 @@
+@startuml TempleYatra_UseCaseDiagram
+
+skinparam backgroundColor #FFFDF7
+skinparam actorStyle awesome
+
+skinparam usecase {
+  BackgroundColor #FFF8EE
+  BorderColor #CC6600
+  FontSize 13
+  FontColor #2C1A00
+}
+
+skinparam actor {
+  BackgroundColor #FFE0B2
+  BorderColor #8B0000
+  FontSize 13
+  FontColor #2C1A00
+}
+
+skinparam rectangle {
+  BackgroundColor #FFF3E0
+  BorderColor #8B0000
+  BorderThickness 2
+  FontSize 14
+  FontColor #8B0000
+  FontStyle bold
+}
+
+skinparam ArrowColor #8B0000
+skinparam ArrowThickness 1.5
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #CC6600
+
+' ─────────────────────────────────────────────
+' ACTORS
+' ─────────────────────────────────────────────
+actor "Guest\n(Unauthenticated)" as Guest
+actor "Pilgrim\n(Registered User)" as Pilgrim
+actor "Local Expert /\nAdmin" as Admin
+actor "Google Maps\nAPI" as GMaps <<external>>
+actor "Groq AI\nAPI" as GroqAI <<external>>
+actor "TTS Engine" as TTS <<external>>
+
+' ─────────────────────────────────────────────
+' SYSTEM BOUNDARY
+' ─────────────────────────────────────────────
+rectangle "TempleYatra Mobile Application" {
+
+  ' ── ONBOARDING ──────────────────────────────
+  package "Onboarding" {
+    usecase "Launch App" as UC_Launch
+    usecase "View Onboarding Screen" as UC_Onboard
+    usecase "Set Up Profile" as UC_ProfileSetup
+    usecase "Continue as Guest" as UC_Guest
+  }
+
+  ' ── TEMPLE DISCOVERY ────────────────────────
+  package "Temple Discovery" {
+    usecase "Browse Temple List" as UC_BrowseTemples
+    usecase "Search Temples" as UC_Search
+    usecase "Filter / Sort Temples" as UC_Filter
+    usecase "View Temple Details" as UC_TempleDetail
+    usecase "View Darshan Timings" as UC_Timings
+    usecase "View Festivals & Prasadam" as UC_Festivals
+    usecase "Get Directions to Temple" as UC_Directions
+    usecase "Call Temple" as UC_Call
+  }
+
+  ' ── YATRA PLANNING ──────────────────────────
+  package "Yatra Planning" {
+    usecase "Plan Yatra" as UC_PlanYatra
+    usecase "Select Temples for Yatra" as UC_SelectTemples
+    usecase "Set Trip Dates & Budget" as UC_SetConstraints
+    usecase "Generate Optimised Itinerary" as UC_GenItinerary
+    usecase "View Route on Map" as UC_RouteMap
+    usecase "Simulate Yatra" as UC_Simulate
+    usecase "Export Itinerary" as UC_Export
+  }
+
+  ' ── AUDIO GUIDE ─────────────────────────────
+  package "Audio Guide" {
+    usecase "Play Audio Guide" as UC_PlayAudio
+    usecase "Select Language" as UC_SelectLang
+    usecase "Select Content Type" as UC_ContentType
+    usecase "Save Audio for Offline" as UC_SaveOffline
+  }
+
+  ' ── OFFLINE PACKS ───────────────────────────
+  package "Offline Content" {
+    usecase "Browse Offline Packs" as UC_BrowsePacks
+    usecase "Download Temple Pack" as UC_Download
+    usecase "Delete Temple Pack" as UC_DeletePack
+    usecase "Play Offline Storytelling" as UC_PlayStory
+  }
+
+  ' ── COMMUNITY ───────────────────────────────
+  package "Community" {
+    usecase "View Community Feed" as UC_Feed
+    usecase "Submit Temple Story" as UC_Submit
+    usecase "Like a Post" as UC_Like
+    usecase "Delete Own Post" as UC_DeletePost
+    usecase "Moderate / Delete Any Post" as UC_Moderate
+    usecase "Pin a Post" as UC_Pin
+  }
+
+  ' ── FESTIVAL CALENDAR ───────────────────────
+  package "Festival Calendar" {
+    usecase "View Temple Calendar" as UC_Calendar
+    usecase "Browse Upcoming Festivals" as UC_UpcomingFestivals
+  }
+
+  ' ── AI CHATBOT ──────────────────────────────
+  package "AI Assistant" {
+    usecase "Ask AI Chatbot" as UC_Chatbot
+  }
+
+  ' ── PROFILE ─────────────────────────────────
+  package "User Profile" {
+    usecase "View / Edit Profile" as UC_Profile
+    usecase "View Visit History" as UC_History
+  }
+
+}
+
+' ─────────────────────────────────────────────
+' GUEST ASSOCIATIONS
+' ─────────────────────────────────────────────
+Guest --> UC_Launch
+Guest --> UC_Onboard
+Guest --> UC_Guest
+Guest --> UC_BrowseTemples
+Guest --> UC_Search
+Guest --> UC_Filter
+Guest --> UC_TempleDetail
+Guest --> UC_Feed
+Guest --> UC_Chatbot
+Guest --> UC_BrowsePacks
+Guest --> UC_PlayAudio
+Guest --> UC_Calendar
+
+' ─────────────────────────────────────────────
+' PILGRIM ASSOCIATIONS (inherits Guest actions)
+' ─────────────────────────────────────────────
+Pilgrim --> UC_ProfileSetup
+Pilgrim --> UC_PlanYatra
+Pilgrim --> UC_Submit
+Pilgrim --> UC_Like
+Pilgrim --> UC_DeletePost
+Pilgrim --> UC_Download
+Pilgrim --> UC_DeletePack
+Pilgrim --> UC_Export
+Pilgrim --> UC_Profile
+Pilgrim --> UC_History
+Pilgrim --> UC_SaveOffline
+
+' ─────────────────────────────────────────────
+' ADMIN ASSOCIATIONS
+' ─────────────────────────────────────────────
+Admin --> UC_Moderate
+Admin --> UC_Pin
+
+' ─────────────────────────────────────────────
+' EXTERNAL SYSTEM ASSOCIATIONS
+' ─────────────────────────────────────────────
+UC_Directions --> GMaps : <<uses>>
+UC_RouteMap    --> GMaps : <<uses>>
+UC_Chatbot     --> GroqAI : <<uses>>
+UC_PlayAudio   --> TTS : <<uses>>
+
+' ─────────────────────────────────────────────
+' INCLUDE / EXTEND RELATIONSHIPS
+' ─────────────────────────────────────────────
+UC_TempleDetail    .> UC_Timings         : <<include>>
+UC_TempleDetail    .> UC_Festivals       : <<include>>
+UC_TempleDetail    .> UC_Directions      : <<extend>>
+UC_TempleDetail    .> UC_Call            : <<extend>>
+
+UC_PlanYatra       .> UC_SelectTemples   : <<include>>
+UC_PlanYatra       .> UC_SetConstraints  : <<include>>
+UC_PlanYatra       .> UC_GenItinerary    : <<include>>
+UC_GenItinerary    .> UC_RouteMap        : <<include>>
+UC_RouteMap        .> UC_Simulate        : <<extend>>
+UC_GenItinerary    .> UC_Export          : <<extend>>
+
+UC_PlayAudio       .> UC_SelectLang      : <<include>>
+UC_PlayAudio       .> UC_ContentType     : <<include>>
+UC_PlayAudio       .> UC_SaveOffline     : <<extend>>
+
+UC_BrowsePacks     .> UC_Download        : <<extend>>
+UC_Download        .> UC_PlayStory       : <<extend>>
+
+UC_Feed            .> UC_Like            : <<extend>>
+UC_Submit          .> UC_Feed            : <<include>>
+
+UC_BrowseTemples   .> UC_Search          : <<extend>>
+UC_BrowseTemples   .> UC_Filter          : <<extend>>
+UC_BrowseTemples   .> UC_TempleDetail    : <<extend>>
+
+UC_Calendar        .> UC_UpcomingFestivals : <<include>>
+
+' ─────────────────────────────────────────────
+' NOTES
+' ─────────────────────────────────────────────
+note right of Admin
+  Admin can also perform
+  all Pilgrim actions.
+  Shown separately for clarity.
+end note
+
+note bottom of GMaps
+  External: Google Maps SDK
+  Used for directions &
+  route visualisation
+end note
+
+@enduml

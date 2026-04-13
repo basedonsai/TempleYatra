@@ -231,7 +231,8 @@ class RoutePainter extends CustomPainter {
   }
   
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant RoutePainter oldDelegate) =>
+      oldDelegate.routePoints != routePoints || oldDelegate.markers != markers;
 }
 
 /// Utility class for Google Maps initialization

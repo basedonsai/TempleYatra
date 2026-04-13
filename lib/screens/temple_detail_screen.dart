@@ -5,12 +5,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/temple_model.dart';
 import '../models/festival_event.dart';
 import '../utils/distance_calculator.dart';
+import '../database/db_providers.dart';
 import '../providers/festival_provider.dart';
 import '../services/crowd_engine.dart';
 import '../widgets/crowd_badge.dart';
 import 'storytelling_screen.dart';
 import 'chatbot_screen.dart';
 import 'temple_calendar_screen.dart';
+import 'yatra_planner_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/audio_pack_section.dart';
 
@@ -208,20 +210,26 @@ class TempleDetailScreen extends StatelessWidget {
 
                         // Crowd status row
                         Consumer(builder: (context, ref, _) {
-                          final events = ref.watch(templeFestivalsProvider(temple.id));
-                          final level = computeCrowdLevel(temple.id, DateTime.now(), events);
-                          final label = switch (level) {
-                            CrowdLevel.low => 'Currently Low Crowd',
-                            CrowdLevel.moderate => 'Moderate Crowd Expected',
-                            CrowdLevel.high => 'High Crowd Expected',
-                          };
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: Row(children: [
-                              CrowdBadge(level: level),
-                              const SizedBox(width: 8),
-                              Text(label, style: const TextStyle(fontSize: 13)),
-                            ]),
+                          final festivalsAsync = ref.watch(templeFestivalsDbProvider(temple.id));
+                          return festivalsAsync.when(
+                            loading: () => const SizedBox(),
+                            error: (e, _) => const SizedBox(),
+                            data: (events) {
+                              final level = computeCrowdLevel(temple.id, DateTime.now(), events);
+                              final label = switch (level) {
+                                CrowdLevel.low => 'Currently Low Crowd',
+                                CrowdLevel.moderate => 'Moderate Crowd Expected',
+                                CrowdLevel.high => 'High Crowd Expected',
+                              };
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: Row(children: [
+                                  CrowdBadge(level: level),
+                                  const SizedBox(width: 8),
+                                  Text(label, style: const TextStyle(fontSize: 13)),
+                                ]),
+                              );
+                            },
                           );
                         }),
 
@@ -289,24 +297,29 @@ class TempleDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             Consumer(builder: (context, ref, _) {
-                              final events = ref.watch(templeFestivalsProvider(temple.id));
-                              final now = DateTime.now();
-                              final today = DateTime(now.year, now.month, now.day);
-                              final upcoming = events
-                                  .where((e) => !DateTime(e.date.year, e.date.month, e.date.day).isBefore(today))
-                                  .take(3)
-                                  .toList();
-                              if (upcoming.isEmpty) {
-                                return const Text('No upcoming festivals in the next year.');
-                              }
-                              return Column(
-                                children: upcoming.map((e) => Row(children: [
-                                  CrowdBadge(level: computeCrowdLevel(temple.id, e.date, events)),
-                                  const SizedBox(width: 8),
-                                  Text(e.name),
-                                  const Spacer(),
-                                  Text(DateFormat('d MMM yyyy').format(e.date)),
-                                ])).toList(),
+                              return ref.watch(templeFestivalsDbProvider(temple.id)).when(
+                                loading: () => const CircularProgressIndicator(),
+                                error: (e, _) => const SizedBox(),
+                                data: (events) {
+                                  final now = DateTime.now();
+                                  final today = DateTime(now.year, now.month, now.day);
+                                  final upcoming = events
+                                      .where((e) => !DateTime(e.date.year, e.date.month, e.date.day).isBefore(today))
+                                      .take(3)
+                                      .toList();
+                                  if (upcoming.isEmpty) {
+                                    return const Text('No upcoming festivals in the next year.');
+                                  }
+                                  return Column(
+                                    children: upcoming.map((e) => Row(children: [
+                                      CrowdBadge(level: computeCrowdLevel(temple.id, e.date, events)),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text(e.name, overflow: TextOverflow.ellipsis)),
+                                      const SizedBox(width: 8),
+                                      Text(DateFormat('d MMM yyyy').format(e.date)),
+                                    ])).toList(),
+                                  );
+                                },
                               );
                             }),
                             const SizedBox(height: 10),
@@ -352,12 +365,11 @@ class TempleDetailScreen extends StatelessWidget {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Added ${temple.name} to your yatra'),
-                                  action: SnackBarAction(
-                                    label: 'View',
-                                    onPressed: () {},
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => YatraPlannerScreen(
+                                    preselectedTemple: temple,
                                   ),
                                 ),
                               );

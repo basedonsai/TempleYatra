@@ -27,6 +27,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
   }
 
   void _onControllerChanged() {
+    if (!mounted) return;
     setState(() {});
     _updateMapBounds();
   }
@@ -157,15 +158,37 @@ class _SimulationScreenState extends State<SimulationScreen> {
     final markers = <Marker>{};
     for (int i = 0; i < _controller.currentRoute.length; i++) {
       final temple = _controller.currentRoute[i];
+      final isCurrent = i == 0;
+      final isLast = i == _controller.currentRoute.length - 1;
       markers.add(
         Marker(
           markerId: MarkerId('temple_$i'),
           position: LatLng(temple.latitude, temple.longitude),
           infoWindow: InfoWindow(
-            title: temple.name,
-            snippet: '${i + 1}. ${temple.address}',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TempleDetailScreen(temple: temple))),
+            title: '${i + 1}. ${temple.name}',
+            snippet: temple.address,
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => TempleDetailScreen(temple: temple))),
           ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isCurrent
+                ? BitmapDescriptor.hueGreen
+                : isLast
+                    ? BitmapDescriptor.hueRed
+                    : BitmapDescriptor.hueOrange,
+          ),
+        ),
+      );
+    }
+    // Add grey markers for skipped temples
+    for (final temple in _controller.skippedTemples) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('skipped_${temple.id}'),
+          position: LatLng(temple.latitude, temple.longitude),
+          infoWindow: InfoWindow(title: '${temple.name} (Skipped)'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          alpha: 0.5,
         ),
       );
     }
@@ -217,8 +240,15 @@ class _SimulationScreenState extends State<SimulationScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Row(children: [
           const Text('Route Order', style: TextStyle(fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text(_controller.statusMessage, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _controller.statusMessage,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+            ),
+          ),
         ])),
         SizedBox(
           height: 160,
@@ -274,33 +304,67 @@ class _SimulationScreenState extends State<SimulationScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[200]!))),
-      child: Wrap(
-        alignment: WrapAlignment.start,
-        spacing: 12,
-        runSpacing: 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ElevatedButton.icon(
-            onPressed: _controller.isSimulating ? (_controller.isPaused ? _controller.resumeSimulation : _controller.pauseSimulation) : _controller.startSimulation,
-            icon: Icon(_controller.isPaused ? Icons.play_arrow : (_controller.isSimulating ? Icons.pause : Icons.play_arrow)),
-            label: Text(_controller.isPaused ? 'Resume' : (_controller.isSimulating ? 'Pause' : 'Start')),
-            style: ElevatedButton.styleFrom(backgroundColor: _controller.isSimulating ? (_controller.isPaused ? Colors.green : Colors.orange) : Colors.green, foregroundColor: Colors.white),
+          Wrap(
+            alignment: WrapAlignment.start,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _controller.isSimulating
+                    ? (_controller.isPaused ? _controller.resumeSimulation : _controller.pauseSimulation)
+                    : _controller.startSimulation,
+                icon: Icon(_controller.isPaused
+                    ? Icons.play_arrow
+                    : (_controller.isSimulating ? Icons.pause : Icons.play_arrow)),
+                label: Text(_controller.isPaused
+                    ? 'Resume'
+                    : (_controller.isSimulating ? 'Pause' : 'Start')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _controller.isSimulating
+                      ? (_controller.isPaused ? Colors.green : Colors.orange)
+                      : Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _controller.resetSimulation,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reset'),
+              ),
+              if (_controller.currentRoute.isNotEmpty)
+                FilledButton.icon(
+                  onPressed: () => _openInGoogleMaps(_controller.currentRoute.first),
+                  icon: const Icon(Icons.navigation),
+                  label: const Text('Navigate'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+            ],
           ),
-          OutlinedButton.icon(onPressed: _controller.resetSimulation, icon: const Icon(Icons.refresh), label: const Text('Reset')),
-          // Navigate button - opens current temple in Google Maps
-          if (_controller.currentRoute.isNotEmpty)
-            FilledButton.icon(
-              onPressed: () => _openInGoogleMaps(_controller.currentRoute.first),
-              icon: const Icon(Icons.navigation),
-              label: const Text('Navigate'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-            ),
-          const SizedBox(width: 16),
-          const Text('Speed:'),
-          const SizedBox(width: 8),
-          DropdownButton<int>(
-            value: _controller.simulationSpeed,
-            onChanged: (value) { if (value != null) _controller.setSimulationSpeed(value); },
-            items: [1, 2, 5, 10].map((speed) => DropdownMenuItem(value: speed, child: Text('${speed}x'))).toList(),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Speed:'),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _controller.simulationSpeed,
+                onChanged: (value) {
+                  if (value != null) _controller.setSimulationSpeed(value);
+                },
+                items: [1, 2, 5, 10]
+                    .map((speed) => DropdownMenuItem(
+                          value: speed,
+                          child: Text('${speed}x'),
+                        ))
+                    .toList(),
+              ),
+            ],
           ),
         ],
       ),

@@ -1,37 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../models/audio_pack.dart';
 import '../providers/audio_pack_provider.dart';
 
-/// A small badge that renders a green "Offline Available" chip when the
-/// audio pack identified by [packId] has been fully downloaded.
-///
-/// Returns [SizedBox.shrink] when the pack is not found or not downloaded.
-///
-/// Validates: Requirements 5.2
+/// Shows a green "Offline Available" chip when the pack is downloaded.
+/// Watches only its own pack — not the full list.
 class OfflineBadge extends ConsumerWidget {
   const OfflineBadge({super.key, required this.packId});
-
   final String packId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the full provider but select only this pack's state
     final asyncPacks = ref.watch(audioPackProvider);
-
-    final pack = asyncPacks.whenOrNull(
+    final isDownloaded = asyncPacks.whenOrNull(
       data: (packs) {
-        try {
-          return packs.firstWhere((p) => p.packId == packId);
-        } catch (_) {
-          return null;
+        for (final p in packs) {
+          if (p.packId == packId) return p.downloadState == DownloadState.downloaded;
         }
+        return false;
       },
-    );
+    ) ?? false;
 
-    if (pack == null || pack.downloadState != DownloadState.downloaded) {
-      return const SizedBox.shrink();
-    }
+    if (!isDownloaded) return const SizedBox.shrink();
 
     return Chip(
       avatar: const Icon(Icons.offline_bolt, color: Colors.green, size: 16),

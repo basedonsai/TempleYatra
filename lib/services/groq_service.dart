@@ -91,6 +91,9 @@ class GroqService {
         'temperature': 0.3,
         'max_tokens': 2000,
       }),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Request timed out.'),
     );
     
     if (response.statusCode == 200) {

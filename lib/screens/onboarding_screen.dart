@@ -1,9 +1,27 @@
 import 'package:flutter/material.dart';
+import '../database/repositories/settings_repository.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
+import 'profile_setup_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
+
+  Future<void> _proceed(BuildContext context) async {
+    final settings = const SettingsRepository();
+    await settings.setHasOnboarded(true);
+    if (!context.mounted) return;
+
+    final profileDone = await settings.profileSetupDone;
+    if (!context.mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => profileDone ? const HomeScreen() : const ProfileSetupScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +44,6 @@ class OnboardingScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Spacer(flex: 2),
-                // Logo/Icon
                 Container(
                   width: 120,
                   height: 120,
@@ -41,14 +58,9 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.temple_hindu,
-                    size: 60,
-                    color: Colors.white,
-                  ),
+                  child: const Icon(Icons.temple_hindu, size: 60, color: Colors.white),
                 ),
                 const SizedBox(height: 32),
-                // App Name
                 Text(
                   'TempleYatra',
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(
@@ -57,7 +69,6 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 16),
-                // Tagline
                 Text(
                   'Your AI-powered temple travel companion',
                   textAlign: TextAlign.center,
@@ -66,18 +77,12 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                 ),
                 const Spacer(flex: 3),
-                // Sign in buttons
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.phone),
-                    label: const Text('Sign in with Phone'),
+                    onPressed: () => _proceed(context),
+                    icon: const Icon(Icons.explore),
+                    label: const Text('Get Started'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.maroon,
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -87,19 +92,11 @@ class OnboardingScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.g_mobiledata),
-                    label: const Text('Sign in with Google'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.maroon,
-                      side: const BorderSide(color: AppTheme.maroon, width: 2),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: TextButton(
+                    onPressed: () => _proceed(context),
+                    child: Text(
+                      'Continue as Guest',
+                      style: TextStyle(color: AppTheme.maroon.withValues(alpha: 0.7)),
                     ),
                   ),
                 ),
@@ -112,4 +109,3 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 }
-

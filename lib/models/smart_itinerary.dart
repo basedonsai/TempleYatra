@@ -6,12 +6,19 @@ import '../services/budget_service.dart';
 class ItineraryRequest {
   final List<Temple> temples;
   final DateTime startDate;
-  final int numberOfDays; // 1–14
-  final double maxBudget; // ₹; 0 = no limit
+  final int numberOfDays;
+  final double maxBudget;
   final VehicleType travelMode;
   final List<String> optionalStops;
-  final TimeOfDay startTime; // default 08:00
-  final int maxTemplesPerDay; // default 3
+  final TimeOfDay startTime;
+  final int maxTemplesPerDay;
+
+  // Cost inputs — no longer hardcoded in the service
+  final double foodBudgetPerDay;
+  final double miscBudgetPerDay;
+  final double fuelPricePerLiter;
+  final int numberOfNights;
+  final AccommodationType accommodationType;
 
   ItineraryRequest({
     required this.temples,
@@ -22,18 +29,19 @@ class ItineraryRequest {
     List<String>? optionalStops,
     TimeOfDay? startTime,
     int? maxTemplesPerDay,
+    this.foodBudgetPerDay = 500.0,
+    this.miscBudgetPerDay = 200.0,
+    this.fuelPricePerLiter = 100.0,
+    this.numberOfNights = 0,
+    this.accommodationType = AccommodationType.budget,
   })  : optionalStops = optionalStops ?? const [],
         startTime = startTime ?? const TimeOfDay(hour: 8, minute: 0),
         maxTemplesPerDay = maxTemplesPerDay ?? 3 {
-    if (temples.isEmpty) {
-      throw ArgumentError('temples must not be empty');
-    }
+    if (temples.isEmpty) throw ArgumentError('temples must not be empty');
     if (numberOfDays < 1 || numberOfDays > 14) {
       throw ArgumentError('numberOfDays must be between 1 and 14, got $numberOfDays');
     }
-    if (maxBudget < 0) {
-      throw ArgumentError('maxBudget must be >= 0, got $maxBudget');
-    }
+    if (maxBudget < 0) throw ArgumentError('maxBudget must be >= 0, got $maxBudget');
   }
 }
 
