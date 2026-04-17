@@ -12,7 +12,9 @@ import 'temple_detail_screen.dart';
 
 
 class TempleListScreen extends ConsumerStatefulWidget {
-  const TempleListScreen({super.key});
+  final String initialFilter;
+
+  const TempleListScreen({super.key, this.initialFilter = 'All'});
 
   @override
   ConsumerState<TempleListScreen> createState() => _TempleListScreenState();
@@ -20,14 +22,17 @@ class TempleListScreen extends ConsumerStatefulWidget {
 
 class _TempleListScreenState extends ConsumerState<TempleListScreen> {
   String _searchQuery = '';
-  String _selectedFilter = 'All';
-  
-  final List<String> _filters = [
-    'All',
-    'Featured',
-    'Nearby',
-    'Favorites',
-  ];
+  late String _selectedFilter;
+  String? _selectedState;
+  bool _showAll = false;
+
+  final List<String> _filters = ['All', 'Popular', 'By State', 'Nearby'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFilter = widget.initialFilter;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,11 +67,12 @@ class _TempleListScreenState extends ConsumerState<TempleListScreen> {
               onChanged: (value) {
                 setState(() {
                   _searchQuery = value;
+                  _showAll = false;
                 });
               },
             ),
           ),
-          
+
           // Filter chips
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -94,6 +100,8 @@ class _TempleListScreenState extends ConsumerState<TempleListScreen> {
                       onSelected: (selected) {
                         setState(() {
                           _selectedFilter = selected ? filter : 'All';
+                          _selectedState = null;
+                          _showAll = false;
                         });
                       },
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -104,9 +112,62 @@ class _TempleListScreenState extends ConsumerState<TempleListScreen> {
               ),
             ),
           ),
-          
+
+          // State picker row (shown only when filter == 'By State')
+          if (_selectedFilter == 'By State')
+            templesAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (allTemples) {
+                final states = allTemples
+                    .map((t) => t.region ?? '')
+                    .where((r) => r.isNotEmpty)
+                    .toSet()
+                    .toList()
+                  ..sort();
+                if (states.isEmpty) return const SizedBox.shrink();
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  color: Colors.grey[50],
+                  child: SizedBox(
+                    height: 36,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: states.length,
+                      itemBuilder: (context, index) {
+                        final state = states[index];
+                        final isSelected = _selectedState == state;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(state, style: TextStyle(
+                              fontSize: isSmallScreen ? 11 : 12,
+                            )),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFF800020),
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                            ),
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedState = selected ? state : null;
+                                _showAll = false;
+                              });
+                            },
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+
           const SizedBox(height: 8),
-          
+
           // Temple list
           Expanded(
             child: templesAsync.when(
@@ -120,11 +181,26 @@ class _TempleListScreenState extends ConsumerState<TempleListScreen> {
               ),
               data: (allTemples) {
                 final filteredTemples = _getFilteredTemples(allTemples);
+                final displayTemples = (!_showAll && filteredTemples.length > 8)
+                    ? filteredTemples.take(8).toList()
+                    : filteredTemples;
+                final hasMore = !_showAll && filteredTemples.length > 8;
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredTemples.length,
+                  itemCount: displayTemples.length + (hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final temple = filteredTemples[index];
+                    if (index == displayTemples.length) {
+                      // "View All" button
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 16),
+                        child: OutlinedButton(
+                          onPressed: () => setState(() => _showAll = true),
+                          child: Text('View All (${filteredTemples.length} temples)'),
+                        ),
+                      );
+                    }
+                    final temple = displayTemples[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _TempleCard(temple: temple),
@@ -141,7 +217,7 @@ class _TempleListScreenState extends ConsumerState<TempleListScreen> {
 
   List<Temple> _getFilteredTemples(List<Temple> source) {
     var temples = List<Temple>.from(source);
-    
+
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
       temples = temples.where((temple) {
@@ -149,29 +225,32 @@ class _TempleListScreenState extends ConsumerState<TempleListScreen> {
             temple.address.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
-    
+
     // Apply category filter
     switch (_selectedFilter) {
-      case 'Nearby':
-        // Sort by distance from center of Hyderabad
-        temples.sort((a, b) {
-          final distA = calculateDistance(17.3850, 78.4867, a.latitude, a.longitude);
-          final distB = calculateDistance(17.3850, 78.4867, b.latitude, b.longitude);
-          return distA.compareTo(distB);
-        });
-        break;
-      case 'Featured':
-        // Show temples with higher ratings first
+      case 'Popular':
         temples.sort((a, b) {
           final ratingA = a.rating ?? 0;
           final ratingB = b.rating ?? 0;
           return ratingB.compareTo(ratingA);
         });
         break;
+      case 'Nearby':
+        temples.sort((a, b) {
+          final distA = calculateDistance(17.3850, 78.4867, a.latitude, a.longitude);
+          final distB = calculateDistance(17.3850, 78.4867, b.latitude, b.longitude);
+          return distA.compareTo(distB);
+        });
+        break;
+      case 'By State':
+        if (_selectedState != null) {
+          temples = temples.where((t) => t.region == _selectedState).toList();
+        }
+        break;
       default:
         break;
     }
-    
+
     return temples;
   }
 }
@@ -290,7 +369,7 @@ class _TempleCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Temple info
             Padding(
               padding: const EdgeInsets.all(14),

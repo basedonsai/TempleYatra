@@ -16,13 +16,28 @@ import 'yatra_planner_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/audio_pack_section.dart';
 
-class TempleDetailScreen extends StatelessWidget {
+class TempleDetailScreen extends ConsumerStatefulWidget {
   final Temple temple;
 
   const TempleDetailScreen({super.key, required this.temple});
 
   @override
+  ConsumerState<TempleDetailScreen> createState() => _TempleDetailScreenState();
+}
+
+class _TempleDetailScreenState extends ConsumerState<TempleDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Track recently viewed — schedule after first frame to avoid provider read during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(recentlyViewedProvider.notifier).viewed(widget.temple.id);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final temple = widget.temple;
     final isSmallScreen = MediaQuery.of(context).size.width < 360;
     final expandedHeight = isSmallScreen ? 200.0 : 250.0;
 
@@ -314,7 +329,7 @@ class TempleDetailScreen extends StatelessWidget {
                                     children: upcoming.map((e) => Row(children: [
                                       CrowdBadge(level: computeCrowdLevel(temple.id, e.date, events)),
                                       const SizedBox(width: 8),
-                                      Expanded(child: Text(e.name, overflow: TextOverflow.ellipsis)),
+                                      Expanded(child: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
                                       const SizedBox(width: 8),
                                       Text(DateFormat('d MMM yyyy').format(e.date)),
                                     ])).toList(),
@@ -461,14 +476,14 @@ class TempleDetailScreen extends StatelessWidget {
   String _getDistanceText() {
     final distance = calculateDistance(
       17.3850, 78.4867, // Hyderabad center
-      temple.latitude, temple.longitude,
+      widget.temple.latitude, widget.temple.longitude,
     );
     return formatDistance(distance);
   }
 
   Future<void> _openDirections() async {
     final url = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${temple.latitude},${temple.longitude}',
+      'https://www.google.com/maps/dir/?api=1&destination=${widget.temple.latitude},${widget.temple.longitude}',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -476,8 +491,8 @@ class TempleDetailScreen extends StatelessWidget {
   }
 
   Future<void> _makeCall() async {
-    if (temple.phoneNumber != null) {
-      final url = Uri.parse('tel:${temple.phoneNumber}');
+    if (widget.temple.phoneNumber != null) {
+      final url = Uri.parse('tel:${widget.temple.phoneNumber}');
       if (await canLaunchUrl(url)) {
         await launchUrl(url);
       }

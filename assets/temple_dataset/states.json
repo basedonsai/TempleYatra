@@ -1,0 +1,381 @@
+[
+  {
+    "name": "Rajasthan",
+    "info": "Rajasthan is known for its magnificent temples and rich cultural heritage.",
+    "story": "The land of kings has numerous ancient temples that reflect its glorious past.",
+    "visiting_guide": "Best visited between October and March. Carry water and wear comfortable footwear.",
+    "architecture": "Rajasthani temples feature intricate marble carvings and shikhara towers.",
+    "mention_in_scripture": "Various Puranas mention temples in this region.",
+    "temples": [
+      {
+        "name": "Brahma Temple Pushkar",
+        "temple_name": "Brahma Temple Pushkar",
+        "lat": 26.4897,
+        "lng": 74.5511,
+        "location": "Pushkar, Ajmer, Rajasthan 305022",
+        "main_deity": "Lord Brahma",
+        "state": "Rajasthan",
+        "about": "One of the very few temples dedicated to Lord Brahma, the creator god.",
+        "darshan_timings": "6:30 AM - 8:30 PM",
+        "prasadam": "Flowers, Coconut",
+        "festivals": "Kartik Purnima, Pushkar Fair"
+      },
+      {
+        "name": "Eklingji Temple",
+        "temple_name": "Eklingji Temple",
+        "lat": 24.7167,
+        "lng": 73.7333,
+        "location": "Kailashpuri, Udaipur, Rajasthan 313202",
+        "main_deity": "Lord Eklingji (Shiva)",
+        "state": "Rajasthan",
+        "about": "Ancient temple complex dedicated to Lord Shiva, patron deity of the Mewar rulers.",
+        "darshan_timings": "4:15 AM - 7:30 PM",
+        "prasadam": "Bhasma, Bilva Patra",
+        "festivals": "Mahashivaratri, Shravan Maas"
+      },
+      {
+        "name": "Dilwara Temples",
+        "temple_name": "Dilwara Temples",
+        "lat": 24.6167,
+        "lng": 72.7167,
+        "location": "Mount Abu, Sirohi, Rajasthan 307501",
+        "main_deity": "Jain Tirthankaras",
+        "state": "Rajasthan",
+        "about": "Famous Jain temples known for their extraordinary marble carvings.",
+        "darshan_timings": "12:00 PM - 5:00 PM",
+        "prasadam": "Flowers",
+        "festivals": "Paryushana, Mahavir Jayanti"
+      }
+    ]
+  },
+  {
+    "name": "Tamil Nadu",
+    "info": "Tamil Nadu is home to some of the most magnificent Dravidian temples in India.",
+    "story": "The land of temples has over 33,000 ancient temples, many built by the Chola, Pallava, and Pandya dynasties.",
+    "visiting_guide": "Best visited between November and February. Dress modestly and remove footwear.",
+    "architecture": "Dravidian architecture with towering gopurams (gateway towers) and mandapams.",
+    "mention_in_scripture": "Tevaram, Divya Prabandham",
+    "temples": [
+      {
+        "name": "Kapaleeshwarar Temple",
+        "temple_name": "Kapaleeshwarar Temple",
+        "lat": 13.0333,
+        "lng": 80.2667,
+        "location": "Mylapore, Chennai, Tamil Nadu 600004",
+        "main_deity": "Lord Kapaleeshwarar (Shiva) and Goddess Karpagambal",
+        "state": "Tamil Nadu",
+        "about": "Ancient Shiva temple in Mylapore, Chennai, known for its colorful gopuram.",
+        "darshan_timings": "5:00 AM - 12:00 PM, 4:00 PM - 10:00 PM",
+        "prasadam": "Vibhuti, Kumkum",
+        "festivals": "Arubathimoovar Festival, Brahmotsavam, Karthigai Deepam"
+      },
+      {
+        "name": "Nataraja Temple Chidambaram",
+        "temple_name": "Nataraja Temple Chidambaram",
+        "lat": 11.3997,
+        "lng": 79.6931,
+        "location": "Chidambaram, Cuddalore, Tamil Nadu 608001",
+        "main_deity": "Lord Nataraja (Shiva as cosmic dancer)",
+        "state": "Tamil Nadu",
+        "about": "One of the Pancha Bhuta Stalas, representing the element of space (Akasha).",
+        "darshan_timings": "6:00 AM - 12:00 PM, 5:00 PM - 10:00 PM",
+        "prasadam": "Vibhuti, Bilva Patra",
+        "festivals": "Natyanjali Festival, Arudra Darshan, Brahmotsavam"
+      },
+      {
+        "name": "Arunachaleswarar Temple",
+        "temple_name": "Arunachaleswarar Temple",
+        "lat": 12.0317,
+        "lng": 79.0667,
+        "location": "Tiruvannamalai, Tamil Nadu 606601",
+        "main_deity": "Lord Arunachaleswarar (Shiva)",
+        "state": "Tamil Nadu",
+        "about": "One of the Pancha Bhuta Stalas, representing the element of fire (Agni).",
+        "darshan_timings": "5:30 AM - 1:00 PM, 3:30 PM - 9:30 PM",
+        "prasadam": "Vibhuti, Bilva Patra",
+        "festivals": "Karthigai Deepam, Mahashivaratri, Brahmotsavam"
+      },
+      {
+        "name": "Murugan Temple Palani",
+        "temple_name": "Murugan Temple Palani",
+        "lat": 10.4500,
+        "lng": 77.5167,
+        "location": "Palani, Dindigul, Tamil Nadu 624601",
+        "main_deity": "Lord Murugan (Kartikeya)",
+        "state": "Tamil Nadu",
+        "about": "One of the six abodes of Lord Murugan, located on a hill.",
+        "darshan_timings": "6:00 AM - 8:30 PM",
+        "prasadam": "Panchamrit, Panchakavya",
+        "festivals": "Thaipusam, Panguni Uthiram, Skanda Sashti"
+      }
+    ]
+  },
+  {
+    "name": "Uttar Pradesh",
+    "info": "Uttar Pradesh is the spiritual heartland of India with numerous sacred cities.",
+    "story": "The state is home to Varanasi, Mathura, Ayodhya, and Prayagraj — four of the seven sacred cities.",
+    "visiting_guide": "Best visited between October and March. Kumbh Mela is held every 12 years at Prayagraj.",
+    "architecture": "Temples range from ancient stone structures to ornate marble edifices.",
+    "mention_in_scripture": "Ramayana, Mahabharata, various Puranas",
+    "temples": [
+      {
+        "name": "Kashi Vishwanath Temple",
+        "temple_name": "Kashi Vishwanath Temple",
+        "lat": 25.3109,
+        "lng": 83.0107,
+        "location": "Vishwanath Gali, Varanasi, Uttar Pradesh 221001",
+        "main_deity": "Lord Vishwanath (Shiva)",
+        "state": "Uttar Pradesh",
+        "about": "One of the most famous Hindu temples, one of the 12 Jyotirlingas.",
+        "darshan_timings": "2:30 AM - 11:00 PM",
+        "prasadam": "Bhasma Aarti Prasad, Panchamrit",
+        "festivals": "Mahashivaratri, Shravan Maas, Dev Deepawali"
+      },
+      {
+        "name": "Banke Bihari Temple",
+        "temple_name": "Banke Bihari Temple",
+        "lat": 27.5800,
+        "lng": 77.6700,
+        "location": "Vrindavan, Mathura, Uttar Pradesh 281121",
+        "main_deity": "Lord Banke Bihari (Krishna)",
+        "state": "Uttar Pradesh",
+        "about": "One of the most famous Krishna temples in Vrindavan.",
+        "darshan_timings": "7:45 AM - 12:00 PM, 5:30 PM - 9:30 PM",
+        "prasadam": "Peda, Makhan Mishri",
+        "festivals": "Janmashtami, Holi, Radhashtami"
+      },
+      {
+        "name": "Vindhyavasini Temple",
+        "temple_name": "Vindhyavasini Temple",
+        "lat": 25.1667,
+        "lng": 82.5667,
+        "location": "Vindhyachal, Mirzapur, Uttar Pradesh 231307",
+        "main_deity": "Goddess Vindhyavasini (Durga)",
+        "state": "Uttar Pradesh",
+        "about": "Important Shakti Peetha dedicated to Goddess Vindhyavasini.",
+        "darshan_timings": "5:00 AM - 10:00 PM",
+        "prasadam": "Sindoor, Flowers",
+        "festivals": "Navaratri, Ashtami"
+      }
+    ]
+  },
+  {
+    "name": "Karnataka",
+    "info": "Karnataka has a rich tradition of temple architecture spanning multiple dynasties.",
+    "story": "The Hoysala, Chalukya, and Vijayanagara empires built magnificent temples across Karnataka.",
+    "visiting_guide": "Best visited between October and February. Hampi and Belur are must-visit sites.",
+    "architecture": "Hoysala, Chalukya, and Vijayanagara architectural styles are prominent.",
+    "mention_in_scripture": "Various Puranas and Agamas",
+    "temples": [
+      {
+        "name": "Virupaksha Temple Hampi",
+        "temple_name": "Virupaksha Temple Hampi",
+        "lat": 15.3350,
+        "lng": 76.4600,
+        "location": "Hampi, Ballari, Karnataka 583239",
+        "main_deity": "Lord Virupaksha (Shiva)",
+        "state": "Karnataka",
+        "about": "UNESCO World Heritage Site, one of the oldest functioning temples in India.",
+        "darshan_timings": "6:00 AM - 1:00 PM, 5:00 PM - 8:30 PM",
+        "prasadam": "Vibhuti, Bilva Patra",
+        "festivals": "Hampi Utsav, Mahashivaratri, Vijayadashami"
+      },
+      {
+        "name": "Hoysaleswara Temple Halebidu",
+        "temple_name": "Hoysaleswara Temple Halebidu",
+        "lat": 13.2167,
+        "lng": 75.9833,
+        "location": "Halebidu, Hassan, Karnataka 573121",
+        "main_deity": "Lord Hoysaleswara (Shiva)",
+        "state": "Karnataka",
+        "about": "12th-century Hoysala temple known for its intricate sculptures.",
+        "darshan_timings": "6:00 AM - 6:00 PM",
+        "prasadam": "Vibhuti",
+        "festivals": "Mahashivaratri, Brahmotsavam"
+      },
+      {
+        "name": "Chamundeshwari Temple",
+        "temple_name": "Chamundeshwari Temple",
+        "lat": 12.2722,
+        "lng": 76.6694,
+        "location": "Chamundi Hills, Mysuru, Karnataka 570010",
+        "main_deity": "Goddess Chamundeshwari (Durga)",
+        "state": "Karnataka",
+        "about": "Temple dedicated to Goddess Chamundeshwari on Chamundi Hills overlooking Mysuru.",
+        "darshan_timings": "7:30 AM - 2:00 PM, 3:30 PM - 6:00 PM, 7:30 PM - 9:00 PM",
+        "prasadam": "Kumkum, Flowers",
+        "festivals": "Navaratri (Dasara), Brahmotsavam"
+      },
+      {
+        "name": "Dharmasthala Temple",
+        "temple_name": "Dharmasthala Temple",
+        "lat": 12.9500,
+        "lng": 75.3833,
+        "location": "Dharmasthala, Dakshina Kannada, Karnataka 574216",
+        "main_deity": "Lord Manjunatha (Shiva)",
+        "state": "Karnataka",
+        "about": "Famous pilgrimage center managed by the Heggade family, known for free meals.",
+        "darshan_timings": "6:30 AM - 2:00 PM, 5:00 PM - 8:30 PM",
+        "prasadam": "Free Annadanam for all pilgrims",
+        "festivals": "Laksha Deepotsava, Brahmotsavam"
+      }
+    ]
+  },
+  {
+    "name": "Odisha",
+    "info": "Odisha is famous for the Jagannath Temple and its unique temple architecture.",
+    "story": "The Kalinga style of temple architecture reached its zenith in Odisha.",
+    "visiting_guide": "Best visited between October and March. Rath Yatra in June/July is spectacular.",
+    "architecture": "Kalinga architecture with deul (tower) and jagamohana (porch) are distinctive.",
+    "mention_in_scripture": "Skanda Purana, various Agamas",
+    "temples": [
+      {
+        "name": "Jagannath Temple Puri",
+        "temple_name": "Jagannath Temple Puri",
+        "lat": 19.8047,
+        "lng": 85.8183,
+        "location": "Puri, Odisha 752001",
+        "main_deity": "Lord Jagannath (Vishnu)",
+        "state": "Odisha",
+        "about": "One of the Char Dham pilgrimage sites, famous for the annual Rath Yatra.",
+        "darshan_timings": "5:00 AM - 11:00 PM",
+        "prasadam": "Mahaprasad (56 varieties of food)",
+        "festivals": "Rath Yatra, Snana Purnima, Chandan Yatra"
+      },
+      {
+        "name": "Lingaraj Temple",
+        "temple_name": "Lingaraj Temple",
+        "lat": 20.2383,
+        "lng": 85.8333,
+        "location": "Lingaraj Nagar, Bhubaneswar, Odisha 751002",
+        "main_deity": "Lord Lingaraj (Shiva)",
+        "state": "Odisha",
+        "about": "The largest temple in Bhubaneswar, a masterpiece of Kalinga architecture.",
+        "darshan_timings": "6:00 AM - 9:00 PM",
+        "prasadam": "Vibhuti, Bilva Patra",
+        "festivals": "Mahashivaratri, Shivaratri Mela"
+      }
+    ]
+  },
+  {
+    "name": "Gujarat",
+    "info": "Gujarat has a rich tradition of temple architecture and pilgrimage sites.",
+    "story": "The state is home to several Jyotirlingas and important Shakti Peethas.",
+    "visiting_guide": "Best visited between October and March. Somnath and Dwarka are must-visit.",
+    "architecture": "Solanki and Maru-Gurjara architectural styles are prominent.",
+    "mention_in_scripture": "Skanda Purana, Shiva Purana",
+    "temples": [
+      {
+        "name": "Ambaji Temple",
+        "temple_name": "Ambaji Temple",
+        "lat": 24.3333,
+        "lng": 72.8500,
+        "location": "Ambaji, Banaskantha, Gujarat 385110",
+        "main_deity": "Goddess Ambaji (Amba Mata)",
+        "state": "Gujarat",
+        "about": "One of the 51 Shakti Peethas, an important pilgrimage site in Gujarat.",
+        "darshan_timings": "7:00 AM - 9:00 PM",
+        "prasadam": "Naivedyam, Flowers",
+        "festivals": "Navaratri, Bhadarvi Poonam"
+      },
+      {
+        "name": "Akshardham Temple Gandhinagar",
+        "temple_name": "Akshardham Temple Gandhinagar",
+        "lat": 23.2167,
+        "lng": 72.6833,
+        "location": "Gandhinagar, Gujarat 382016",
+        "main_deity": "Lord Swaminarayan",
+        "state": "Gujarat",
+        "about": "Beautiful temple complex dedicated to Lord Swaminarayan, built by BAPS.",
+        "darshan_timings": "9:30 AM - 7:30 PM",
+        "prasadam": "Prasad",
+        "festivals": "Swaminarayan Jayanti, Diwali"
+      }
+    ]
+  },
+  {
+    "name": "Maharashtra",
+    "info": "Maharashtra has numerous important pilgrimage sites and ancient temples.",
+    "story": "The state is home to several Jyotirlingas, Ashtavinayak temples, and Shakti Peethas.",
+    "visiting_guide": "Best visited between October and February. Avoid monsoon season for hill temples.",
+    "architecture": "Hemadpanthi style of architecture is common in Maharashtra temples.",
+    "mention_in_scripture": "Skanda Purana, Ganesha Purana",
+    "temples": [
+      {
+        "name": "Pandharpur Vitthal Temple",
+        "temple_name": "Pandharpur Vitthal Temple",
+        "lat": 17.6833,
+        "lng": 75.3333,
+        "location": "Pandharpur, Solapur, Maharashtra 413304",
+        "main_deity": "Lord Vitthal (Vishnu/Krishna)",
+        "state": "Maharashtra",
+        "about": "One of the most important pilgrimage sites in Maharashtra, visited during Wari.",
+        "darshan_timings": "4:00 AM - 11:00 PM",
+        "prasadam": "Shira, Puri",
+        "festivals": "Ashadhi Ekadasi, Kartiki Ekadasi, Wari"
+      },
+      {
+        "name": "Bhimashankar Temple",
+        "temple_name": "Bhimashankar Temple",
+        "lat": 19.0667,
+        "lng": 73.5333,
+        "location": "Bhimashankar, Pune, Maharashtra 410509",
+        "main_deity": "Lord Bhimashankar (Shiva)",
+        "state": "Maharashtra",
+        "about": "One of the 12 Jyotirlingas, located in the Sahyadri mountains.",
+        "darshan_timings": "4:30 AM - 9:30 PM",
+        "prasadam": "Bhasma, Bilva Patra",
+        "festivals": "Mahashivaratri, Shravan Maas"
+      },
+      {
+        "name": "Tuljapur Bhavani Temple",
+        "temple_name": "Tuljapur Bhavani Temple",
+        "lat": 17.9833,
+        "lng": 76.0667,
+        "location": "Tuljapur, Osmanabad, Maharashtra 413601",
+        "main_deity": "Goddess Bhavani (Durga)",
+        "state": "Maharashtra",
+        "about": "One of the three and a half Shakti Peethas in Maharashtra.",
+        "darshan_timings": "4:00 AM - 10:00 PM",
+        "prasadam": "Kumkum, Flowers",
+        "festivals": "Navaratri, Lalita Panchami"
+      }
+    ]
+  },
+  {
+    "name": "Kerala",
+    "info": "Kerala has a unique tradition of temple architecture and rituals.",
+    "story": "Kerala temples are known for their distinctive Kerala style architecture and elaborate rituals.",
+    "visiting_guide": "Best visited between October and March. Dress code is strictly enforced.",
+    "architecture": "Kerala style with sloping roofs, wooden carvings, and copper-covered towers.",
+    "mention_in_scripture": "Various Agamas and Tantras",
+    "temples": [
+      {
+        "name": "Sabarimala Temple",
+        "temple_name": "Sabarimala Temple",
+        "lat": 9.4333,
+        "lng": 77.0833,
+        "location": "Sabarimala, Pathanamthitta, Kerala 689711",
+        "main_deity": "Lord Ayyappa",
+        "state": "Kerala",
+        "about": "One of the most visited pilgrimage sites in the world, open during Mandalam season.",
+        "darshan_timings": "Open during Mandalam, Makaravilakku, and Vishu seasons",
+        "prasadam": "Aravana Payasam, Appam",
+        "festivals": "Makaravilakku, Mandalam"
+      },
+      {
+        "name": "Attukal Bhagavathy Temple",
+        "temple_name": "Attukal Bhagavathy Temple",
+        "lat": 8.4833,
+        "lng": 76.9500,
+        "location": "Attukal, Thiruvananthapuram, Kerala 695009",
+        "main_deity": "Goddess Attukal Bhagavathy",
+        "state": "Kerala",
+        "about": "Known as the Sabarimala of women, hosts the world's largest gathering of women.",
+        "darshan_timings": "4:00 AM - 12:00 PM, 5:00 PM - 8:30 PM",
+        "prasadam": "Pongala",
+        "festivals": "Attukal Pongala, Navaratri"
+      }
+    ]
+  }
+]

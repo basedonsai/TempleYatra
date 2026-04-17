@@ -136,6 +136,22 @@ class CurrentUserNotifier extends AsyncNotifier<UserProfile> {
   }
 }
 
+// ── Recently viewed notifier ─────────────────────────────────────────────
+
+class RecentlyViewedNotifier extends StateNotifier<List<String>> {
+  RecentlyViewedNotifier() : super([]);
+
+  void viewed(String templeId) {
+    final updated = [templeId, ...state.where((id) => id != templeId)];
+    state = updated.take(5).toList();
+  }
+}
+
+final recentlyViewedProvider =
+    StateNotifierProvider<RecentlyViewedNotifier, List<String>>(
+  (_) => RecentlyViewedNotifier(),
+);
+
 // ── Community feed notifier ───────────────────────────────────────────────
 
 final communityFeedProvider =

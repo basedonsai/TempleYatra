@@ -82,3 +82,5 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/temple_dataset/deities.json
+    - assets/temple_dataset/states.json

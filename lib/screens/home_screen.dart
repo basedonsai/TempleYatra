@@ -23,25 +23,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
-
   @override
   void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
     super.dispose();
-  }
-
-  void _handleSearch(String query) {
-    if (query.trim().isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const TempleListScreen(),
-        ),
-      );
-    }
   }
 
   void _openChatbot() {
@@ -115,41 +99,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Welcome Section
-                        _buildWelcomeSection(isSmallScreen),
+                        // Greeting Header
+                        _buildGreetingHeader(isSmallScreen),
                         SizedBox(height: isWebDesktop ? 32.0 : 24.0),
-                        
-                        // Search Bar
-                        _buildSearchBar(isSmallScreen),
-                        SizedBox(height: isWebDesktop ? 40.0 : 24.0),
-                        
-                        // Quick Actions
-                        _buildQuickActionsSection(
+
+                        // Intent Cards (2x2 grid)
+                        _buildIntentCardsSection(
                           isSmallScreen,
                           isWebTablet,
                           gridCrossCount,
                           gridChildAspectRatio,
                           iconSize,
-                          templesAsync,
                         ),
-                        SizedBox(height: isWebDesktop ? 48.0 : 24.0),
-                        
-                        // Featured Yatras
-                        _buildFeaturedSection(
+                        SizedBox(height: isWebDesktop ? 40.0 : 24.0),
+
+                        // Recently Viewed (only if non-empty)
+                        _buildRecentlyViewedSection(isSmallScreen, templesAsync),
+
+                        // Popular Temples
+                        _buildPopularTemplesSection(
                           isSmallScreen,
                           isWebDesktop,
                           featuredCardWidth,
                           templesAsync,
                         ),
                         SizedBox(height: isWebDesktop ? 48.0 : 24.0),
-                        
+
                         // Upcoming Festivals
                         _buildFestivalsSection(isSmallScreen, templesAsync),
                         SizedBox(height: isWebDesktop ? 48.0 : 24.0),
-                        
+
                         // Quick Stats (web only)
                         if (isWebDesktop) _buildQuickStats(),
-                        
+
                         const SizedBox(height: 100),
                       ],
                     ),
@@ -302,12 +284,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildWelcomeSection(bool isSmallScreen) {
+  Widget _buildGreetingHeader(bool isSmallScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Welcome to TempleYatra',
+          'Jai Shri Ram 🙏',
           style: TextStyle(
             fontSize: isSmallScreen ? 24 : 28,
             fontWeight: FontWeight.w700,
@@ -316,7 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Discover temples, plan your spiritual journey, and explore rich cultural heritage',
+          'Where would you like to go today?',
           style: TextStyle(
             fontSize: 15,
             color: AppTheme.textSecondary,
@@ -327,152 +309,186 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSearchBar(bool isSmallScreen) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        decoration: InputDecoration(
-          hintText: 'Search temples, festivals, or destinations...',
-          prefixIcon: Container(
-            padding: const EdgeInsets.all(14),
-            child: const Icon(Icons.search, color: AppTheme.saffron),
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: AppTheme.cardBackground,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
-          hintStyle: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-          ),
-        ),
-        onSubmitted: _handleSearch,
-        style: const TextStyle(
-          fontSize: 15,
-          color: AppTheme.textPrimary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionsSection(
+  Widget _buildIntentCardsSection(
     bool isSmallScreen,
     bool isWebTablet,
     int gridCrossCount,
     double gridChildAspectRatio,
     double iconSize,
-    AsyncValue<List<Temple>> templesAsync,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return GridView.count(
+      crossAxisCount: gridCrossCount,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: gridChildAspectRatio,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 18 : 20,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TempleListScreen()),
-              ),
-              child: const Text('View All'),
-            ),
-          ],
+        _QuickActionCard(
+          icon: Icons.route,
+          title: 'Plan a Yatra',
+          subtitle: 'Create your itinerary',
+          color: AppTheme.saffron,
+          iconSize: iconSize,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const YatraPlannerScreen()),
+          ),
         ),
-        const SizedBox(height: 12),
-        
-        GridView.count(
-          crossAxisCount: gridCrossCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: gridChildAspectRatio,
-          children: [
-            _QuickActionCard(
-              icon: Icons.route,
-              title: 'Plan Yatra',
-              subtitle: 'Create your itinerary',
-              color: AppTheme.saffron,
-              iconSize: iconSize,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const YatraPlannerScreen()),
-                );
-              },
+        _QuickActionCard(
+          icon: Icons.explore,
+          title: 'Explore Temples',
+          subtitle: 'Browse all temples',
+          color: AppTheme.maroon,
+          iconSize: iconSize,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TempleListScreen()),
+          ),
+        ),
+        _QuickActionCard(
+          icon: Icons.celebration,
+          title: 'Festivals Today',
+          subtitle: 'Upcoming events',
+          color: const Color(0xFFE91E63),
+          iconSize: iconSize,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AllFestivalsScreen()),
+          ),
+        ),
+        _QuickActionCard(
+          icon: Icons.star,
+          title: 'Popular Temples',
+          subtitle: 'Top rated temples',
+          color: AppTheme.templeGold,
+          iconSize: iconSize,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const TempleListScreen(initialFilter: 'Popular'),
             ),
-            _QuickActionCard(
-              icon: Icons.inventory_2,
-              title: 'Temple Packs',
-              subtitle: 'Offline content',
-              color: AppTheme.templeGold,
-              iconSize: iconSize,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const OfflinePackManagerScreen()),
-                );
-              },
-            ),
-            _QuickActionCard(
-              icon: Icons.location_on,
-              title: 'Nearby Temples',
-              subtitle: 'Find temples nearby',
-              color: AppTheme.maroon,
-              iconSize: iconSize,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TempleListScreen()),
-                );
-              },
-            ),
-            _QuickActionCard(
-              icon: Icons.celebration,
-              title: 'Festivals',
-              subtitle: 'Upcoming events',
-              color: const Color(0xFFE91E63),
-              iconSize: iconSize,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AllFestivalsScreen()),
-                );
-              },
-            ),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFeaturedSection(
+  Widget _buildRecentlyViewedSection(
+    bool isSmallScreen,
+    AsyncValue<List<Temple>> templesAsync,
+  ) {
+    final recentIds = ref.watch(recentlyViewedProvider);
+    if (recentIds.isEmpty) return const SizedBox.shrink();
+
+    final temples = templesAsync.valueOrNull ?? [];
+    final recentTemples = recentIds
+        .map((id) => temples.where((t) => t.id == id).firstOrNull)
+        .whereType<Temple>()
+        .toList();
+
+    if (recentTemples.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recently Visited',
+          style: TextStyle(
+            fontSize: isSmallScreen ? 18 : 20,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: recentTemples.length,
+            itemBuilder: (context, index) {
+              final temple = recentTemples[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TempleDetailScreen(temple: temple),
+                    ),
+                  ),
+                  child: Container(
+                    width: 140,
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderColor),
+                      boxShadow: AppTheme.cardShadow,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.saffron.withValues(alpha: 0.8),
+                                AppTheme.saffron,
+                              ],
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.temple_hindu, color: Colors.white, size: 28),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                temple.name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (temple.region != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  temple.region!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildPopularTemplesSection(
     bool isSmallScreen,
     bool isWebDesktop,
     double featuredCardWidth,
@@ -485,7 +501,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Featured Yatras',
+              'Popular Temples',
               style: TextStyle(
                 fontSize: isSmallScreen ? 18 : 20,
                 fontWeight: FontWeight.w600,
@@ -495,41 +511,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             TextButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const TempleListScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const TempleListScreen(initialFilter: 'Popular'),
+                ),
               ),
               child: const Text('View All'),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        
         SizedBox(
           height: isWebDesktop ? 280.0 : (isSmallScreen ? 160.0 : 200.0),
           child: templesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, _) => Center(child: Text('Error: $err')),
-            data: (temples) => ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: temples.length,
-              itemBuilder: (context, index) {
-                final temple = temples[index];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: _FeaturedCard(
-                    width: featuredCardWidth,
-                    temple: temple,
-                    onTap: () {
-                      Navigator.push(
+            data: (temples) {
+              final popular = List<Temple>.from(temples)
+                ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
+              final top5 = popular.take(5).toList();
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: top5.length,
+                itemBuilder: (context, index) {
+                  final temple = top5[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: _FeaturedCard(
+                      width: featuredCardWidth,
+                      temple: temple,
+                      onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => TempleDetailScreen(temple: temple),
                         ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ),
       ],

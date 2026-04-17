@@ -207,8 +207,11 @@ class _PostCard extends ConsumerWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Text(post.authorName,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Flexible(
+                    child: Text(post.authorName,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  ),
                   const SizedBox(width: 6),
                   _RoleBadge(role: post.authorRole),
                 ]),

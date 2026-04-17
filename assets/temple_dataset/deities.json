@@ -1,0 +1,446 @@
+[
+  {
+    "name": "Vishnu",
+    "info": "Lord Vishnu is the preserver of the universe in Hindu tradition.",
+    "story": "Vishnu is one of the principal deities of Hinduism and the Supreme Being in Vaishnavism.",
+    "visiting_guide": "Temples are open early morning and evening. Dress modestly.",
+    "architecture": "Dravidian and Nagara styles are common in Vishnu temples.",
+    "mention_in_scripture": "Rigveda, Bhagavad Gita, Vishnu Purana",
+    "temples": [
+      {
+        "name": "Tirumala Venkateswara Temple",
+        "temple_name": "Tirumala Venkateswara Temple",
+        "lat": 13.6833,
+        "lng": 79.3472,
+        "location": "Tirumala, Tirupati, Andhra Pradesh 517504",
+        "main_deity": "Lord Venkateswara (Vishnu)",
+        "state": "Andhra Pradesh",
+        "about": "One of the most visited pilgrimage sites in the world, dedicated to Lord Venkateswara.",
+        "darshan_timings": "2:30 AM - 1:30 AM (next day)",
+        "prasadam": "Tirupati Laddu (GI tagged), Vada, Pongal",
+        "festivals": "Brahmotsavam, Vaikunta Ekadasi, Ugadi"
+      },
+      {
+        "name": "Padmanabhaswamy Temple",
+        "temple_name": "Padmanabhaswamy Temple",
+        "lat": 8.4833,
+        "lng": 76.9167,
+        "location": "East Fort, Thiruvananthapuram, Kerala 695023",
+        "main_deity": "Lord Padmanabha (Vishnu)",
+        "state": "Kerala",
+        "about": "Ancient temple with Lord Vishnu in the Ananthasayana posture. One of the 108 Divya Desams.",
+        "darshan_timings": "3:30 AM - 12:00 PM, 5:00 PM - 7:20 PM",
+        "prasadam": "Aval Vilayichathu, Koova Payasam",
+        "festivals": "Alpashy Utsavam, Panguni Utsavam, Laksha Deepam"
+      },
+      {
+        "name": "Ranganathaswamy Temple Srirangam",
+        "temple_name": "Ranganathaswamy Temple Srirangam",
+        "lat": 10.8653,
+        "lng": 78.6869,
+        "location": "Srirangam, Tiruchirappalli, Tamil Nadu 620006",
+        "main_deity": "Lord Ranganatha (Vishnu)",
+        "state": "Tamil Nadu",
+        "about": "Largest functioning Hindu temple in the world. One of the 108 Divya Desams.",
+        "darshan_timings": "6:00 AM - 1:00 PM, 3:15 PM - 9:00 PM",
+        "prasadam": "Chakkarai Pongal, Vada, Payasam",
+        "festivals": "Vaikunta Ekadasi, Brahmotsavam, Panguni Uthiram"
+      },
+      {
+        "name": "Guruvayur Temple",
+        "temple_name": "Guruvayur Temple",
+        "lat": 10.5944,
+        "lng": 76.0416,
+        "location": "Guruvayur, Thrissur, Kerala 680101",
+        "main_deity": "Lord Guruvayurappan (Krishna/Vishnu)",
+        "state": "Kerala",
+        "about": "One of the most important Vishnu temples in Kerala, known as Bhuloka Vaikunta.",
+        "darshan_timings": "3:00 AM - 1:00 PM, 4:30 PM - 9:15 PM",
+        "prasadam": "Unniappam, Aval Nanachathu, Koova Payasam",
+        "festivals": "Guruvayur Ekadasi, Utsavam, Janmashtami"
+      },
+      {
+        "name": "Badrinath Temple",
+        "temple_name": "Badrinath Temple",
+        "lat": 30.7433,
+        "lng": 79.4938,
+        "location": "Badrinath, Chamoli, Uttarakhand 246422",
+        "main_deity": "Lord Badrinarayan (Vishnu)",
+        "state": "Uttarakhand",
+        "about": "One of the Char Dham pilgrimage sites, located in the Himalayas.",
+        "darshan_timings": "4:30 AM - 1:00 PM, 3:00 PM - 9:00 PM",
+        "prasadam": "Badri Prasad (dry fruits and tulsi)",
+        "festivals": "Badri Kedar Festival, Mata Murti Ka Mela"
+      }
+    ]
+  },
+  {
+    "name": "Shiva",
+    "info": "Lord Shiva is the destroyer and transformer in the Hindu Trinity.",
+    "story": "Shiva is one of the principal deities of Hinduism, worshipped as the Supreme Being in Shaivism.",
+    "visiting_guide": "Monday is considered auspicious for Shiva worship. Offer bilva leaves.",
+    "architecture": "Shiva temples often feature a Shivalinga in the sanctum.",
+    "mention_in_scripture": "Shiva Purana, Rigveda, Mahabharata",
+    "temples": [
+      {
+        "name": "Kashi Vishwanath Temple",
+        "temple_name": "Kashi Vishwanath Temple",
+        "lat": 25.3109,
+        "lng": 83.0107,
+        "location": "Vishwanath Gali, Varanasi, Uttar Pradesh 221001",
+        "main_deity": "Lord Vishwanath (Shiva)",
+        "state": "Uttar Pradesh",
+        "about": "One of the most famous Hindu temples dedicated to Lord Shiva, one of the 12 Jyotirlingas.",
+        "darshan_timings": "2:30 AM - 11:00 PM",
+        "prasadam": "Bhasma Aarti Prasad, Panchamrit",
+        "festivals": "Mahashivaratri, Shravan Maas, Dev Deepawali"
+      },
+      {
+        "name": "Somnath Temple",
+        "temple_name": "Somnath Temple",
+        "lat": 20.8880,
+        "lng": 70.4013,
+        "location": "Prabhas Patan, Veraval, Gujarat 362268",
+        "main_deity": "Lord Somnath (Shiva)",
+        "state": "Gujarat",
+        "about": "First among the 12 Jyotirlingas, rebuilt multiple times after destruction.",
+        "darshan_timings": "6:00 AM - 9:30 PM",
+        "prasadam": "Bhasma, Bilva Patra",
+        "festivals": "Mahashivaratri, Kartik Purnima, Shravan Maas"
+      },
+      {
+        "name": "Meenakshi Amman Temple",
+        "temple_name": "Meenakshi Amman Temple",
+        "lat": 9.9195,
+        "lng": 78.1193,
+        "location": "Madurai Main, Madurai, Tamil Nadu 625001",
+        "main_deity": "Goddess Meenakshi (Parvati) and Lord Sundareswarar (Shiva)",
+        "state": "Tamil Nadu",
+        "about": "Historic Hindu temple dedicated to Goddess Meenakshi and her consort Shiva.",
+        "darshan_timings": "5:00 AM - 12:30 PM, 4:00 PM - 10:00 PM",
+        "prasadam": "Panchaamirtham, Kozhukattai",
+        "festivals": "Meenakshi Thirukalyanam, Navaratri, Teppam Festival"
+      },
+      {
+        "name": "Kedarnath Temple",
+        "temple_name": "Kedarnath Temple",
+        "lat": 30.7352,
+        "lng": 79.0669,
+        "location": "Kedarnath, Rudraprayag, Uttarakhand 246445",
+        "main_deity": "Lord Kedarnath (Shiva)",
+        "state": "Uttarakhand",
+        "about": "One of the Char Dham pilgrimage sites and one of the 12 Jyotirlingas.",
+        "darshan_timings": "4:00 AM - 3:00 PM, 5:00 PM - 9:00 PM",
+        "prasadam": "Panchamrit, Bhasma",
+        "festivals": "Kedarnath Utsav, Mahashivaratri"
+      },
+      {
+        "name": "Brihadeeswarar Temple",
+        "temple_name": "Brihadeeswarar Temple",
+        "lat": 10.7828,
+        "lng": 79.1318,
+        "location": "Membalam Rd, Thanjavur, Tamil Nadu 613001",
+        "main_deity": "Lord Brihadeeswarar (Shiva)",
+        "state": "Tamil Nadu",
+        "about": "UNESCO World Heritage Site, built by Raja Raja Chola I. A masterpiece of Dravidian architecture.",
+        "darshan_timings": "6:00 AM - 12:30 PM, 4:00 PM - 8:30 PM",
+        "prasadam": "Vibhuti, Bilva Patra",
+        "festivals": "Mahashivaratri, Karthigai Deepam, Brahmotsavam"
+      }
+    ]
+  },
+  {
+    "name": "Devi",
+    "info": "Devi is the supreme goddess in Shaktism, worshipped in many forms.",
+    "story": "The Divine Mother is worshipped in various forms including Durga, Kali, Lakshmi, and Saraswati.",
+    "visiting_guide": "Navaratri is the most auspicious time to visit Devi temples.",
+    "architecture": "Shakti Peethas are important pilgrimage sites across India.",
+    "mention_in_scripture": "Devi Mahatmya, Devi Bhagavata Purana",
+    "temples": [
+      {
+        "name": "Vaishno Devi Temple",
+        "temple_name": "Vaishno Devi Temple",
+        "lat": 33.0297,
+        "lng": 74.9520,
+        "location": "Katra, Reasi, Jammu and Kashmir 182301",
+        "main_deity": "Goddess Vaishno Devi (Durga)",
+        "state": "Jammu and Kashmir",
+        "about": "One of the most revered Hindu temples, located in the Trikuta Mountains.",
+        "darshan_timings": "Open 24 hours",
+        "prasadam": "Prasad Bhawan offerings",
+        "festivals": "Navaratri, Ashtami"
+      },
+      {
+        "name": "Kamakhya Temple",
+        "temple_name": "Kamakhya Temple",
+        "lat": 26.1664,
+        "lng": 91.7050,
+        "location": "Nilachal Hills, Guwahati, Assam 781010",
+        "main_deity": "Goddess Kamakhya (Shakti)",
+        "state": "Assam",
+        "about": "One of the most important Shakti Peethas, located on Nilachal Hill.",
+        "darshan_timings": "8:00 AM - 1:00 PM, 2:30 PM - 5:30 PM",
+        "prasadam": "Sindoor, Flowers",
+        "festivals": "Ambubachi Mela, Navaratri, Durga Puja"
+      },
+      {
+        "name": "Siddhivinayak Temple",
+        "temple_name": "Siddhivinayak Temple",
+        "lat": 19.0170,
+        "lng": 72.8302,
+        "location": "Prabhadevi, Mumbai, Maharashtra 400028",
+        "main_deity": "Lord Siddhivinayak (Ganesha)",
+        "state": "Maharashtra",
+        "about": "One of the most visited temples in Mumbai, dedicated to Lord Ganesha.",
+        "darshan_timings": "5:30 AM - 10:00 PM",
+        "prasadam": "Modak, Laddu",
+        "festivals": "Ganesh Chaturthi, Sankashti Chaturthi"
+      },
+      {
+        "name": "Shirdi Sai Baba Temple",
+        "temple_name": "Shirdi Sai Baba Temple",
+        "lat": 19.7667,
+        "lng": 74.4778,
+        "location": "Shirdi, Ahmednagar, Maharashtra 423109",
+        "main_deity": "Sai Baba of Shirdi",
+        "state": "Maharashtra",
+        "about": "One of the most visited pilgrimage sites in India, dedicated to Sai Baba.",
+        "darshan_timings": "4:00 AM - 11:00 PM",
+        "prasadam": "Udi (sacred ash), Prasad",
+        "festivals": "Ram Navami, Guru Purnima, Vijayadashami"
+      },
+      {
+        "name": "Mahalaxmi Temple Kolhapur",
+        "temple_name": "Mahalaxmi Temple Kolhapur",
+        "lat": 16.7050,
+        "lng": 74.2433,
+        "location": "Kolhapur, Maharashtra 416012",
+        "main_deity": "Goddess Mahalaxmi",
+        "state": "Maharashtra",
+        "about": "One of the six Shakti Peethas in Maharashtra, dedicated to Goddess Mahalaxmi.",
+        "darshan_timings": "4:00 AM - 10:00 PM",
+        "prasadam": "Naivedyam, Flowers",
+        "festivals": "Navaratri, Kirnotsav"
+      }
+    ]
+  },
+  {
+    "name": "Ganesha",
+    "info": "Lord Ganesha is the remover of obstacles and the god of beginnings.",
+    "story": "Ganesha is widely revered as the remover of obstacles, the patron of arts and sciences.",
+    "visiting_guide": "Tuesday and Wednesday are auspicious for Ganesha worship.",
+    "architecture": "Ganesha temples often feature the elephant-headed deity in the sanctum.",
+    "mention_in_scripture": "Ganesha Purana, Mudgala Purana",
+    "temples": [
+      {
+        "name": "Ashtavinayak Morgaon",
+        "temple_name": "Ashtavinayak Morgaon",
+        "lat": 18.2667,
+        "lng": 74.9833,
+        "location": "Morgaon, Pune, Maharashtra 412303",
+        "main_deity": "Lord Mayureshwar (Ganesha)",
+        "state": "Maharashtra",
+        "about": "First of the eight Ashtavinayak temples, considered the most important.",
+        "darshan_timings": "5:00 AM - 10:00 PM",
+        "prasadam": "Modak, Laddu",
+        "festivals": "Ganesh Chaturthi, Bhadrapad Shukla Chaturthi"
+      },
+      {
+        "name": "Trimbakeshwar Temple",
+        "temple_name": "Trimbakeshwar Temple",
+        "lat": 19.9333,
+        "lng": 73.5333,
+        "location": "Trimbak, Nashik, Maharashtra 422212",
+        "main_deity": "Lord Trimbakeshwar (Shiva)",
+        "state": "Maharashtra",
+        "about": "One of the 12 Jyotirlingas, located near the source of the Godavari river.",
+        "darshan_timings": "5:30 AM - 9:00 PM",
+        "prasadam": "Bhasma, Bilva Patra",
+        "festivals": "Mahashivaratri, Shravan Maas, Kumbh Mela"
+      }
+    ]
+  },
+  {
+    "name": "Rama",
+    "info": "Lord Rama is the seventh avatar of Vishnu and the hero of the Ramayana.",
+    "story": "Rama is the ideal man and perfect king in Hindu tradition.",
+    "visiting_guide": "Ram Navami is the most auspicious time to visit Rama temples.",
+    "architecture": "Rama temples often feature the deity with Sita, Lakshmana, and Hanuman.",
+    "mention_in_scripture": "Ramayana, Ramcharitmanas",
+    "temples": [
+      {
+        "name": "Ram Janmabhoomi Temple",
+        "temple_name": "Ram Janmabhoomi Temple",
+        "lat": 26.7950,
+        "lng": 82.1942,
+        "location": "Ayodhya, Uttar Pradesh 224123",
+        "main_deity": "Lord Ram Lalla (Rama)",
+        "state": "Uttar Pradesh",
+        "about": "The birthplace of Lord Rama, one of the most sacred sites in Hinduism.",
+        "darshan_timings": "7:00 AM - 11:00 AM, 2:00 PM - 7:00 PM",
+        "prasadam": "Panchamrit, Flowers",
+        "festivals": "Ram Navami, Diwali, Vivah Panchami"
+      },
+      {
+        "name": "Ramanathaswamy Temple",
+        "temple_name": "Ramanathaswamy Temple",
+        "lat": 9.2885,
+        "lng": 79.3174,
+        "location": "Rameswaram, Ramanathapuram, Tamil Nadu 623526",
+        "main_deity": "Lord Ramanathaswamy (Shiva)",
+        "state": "Tamil Nadu",
+        "about": "One of the Char Dham pilgrimage sites and one of the 12 Jyotirlingas.",
+        "darshan_timings": "5:00 AM - 1:00 PM, 3:00 PM - 9:00 PM",
+        "prasadam": "Panchamrit, Vibhuti",
+        "festivals": "Brahmotsavam, Mahashivaratri, Aadi Amavasai"
+      },
+      {
+        "name": "Hanuman Garhi",
+        "temple_name": "Hanuman Garhi",
+        "lat": 26.7952,
+        "lng": 82.1944,
+        "location": "Ayodhya, Uttar Pradesh 224123",
+        "main_deity": "Lord Hanuman",
+        "state": "Uttar Pradesh",
+        "about": "Important temple dedicated to Lord Hanuman in Ayodhya.",
+        "darshan_timings": "5:00 AM - 10:00 PM",
+        "prasadam": "Sindoor, Laddu",
+        "festivals": "Hanuman Jayanti, Ram Navami, Diwali"
+      }
+    ]
+  },
+  {
+    "name": "Krishna",
+    "info": "Lord Krishna is the eighth avatar of Vishnu and the divine teacher of the Bhagavad Gita.",
+    "story": "Krishna is one of the most widely revered deities in Hinduism.",
+    "visiting_guide": "Janmashtami is the most auspicious time to visit Krishna temples.",
+    "architecture": "Krishna temples often feature the deity with Radha or as a child.",
+    "mention_in_scripture": "Bhagavad Gita, Bhagavata Purana, Mahabharata",
+    "temples": [
+      {
+        "name": "Krishna Janmabhoomi Temple",
+        "temple_name": "Krishna Janmabhoomi Temple",
+        "lat": 27.5000,
+        "lng": 77.6667,
+        "location": "Mathura, Uttar Pradesh 281001",
+        "main_deity": "Lord Krishna",
+        "state": "Uttar Pradesh",
+        "about": "The birthplace of Lord Krishna, one of the most sacred sites in Hinduism.",
+        "darshan_timings": "5:00 AM - 12:00 PM, 4:00 PM - 9:30 PM",
+        "prasadam": "Peda, Makhan Mishri",
+        "festivals": "Janmashtami, Holi, Radhashtami"
+      },
+      {
+        "name": "Dwarkadhish Temple",
+        "temple_name": "Dwarkadhish Temple",
+        "lat": 22.2378,
+        "lng": 68.9674,
+        "location": "Dwarka, Gujarat 361335",
+        "main_deity": "Lord Dwarkadhish (Krishna)",
+        "state": "Gujarat",
+        "about": "One of the Char Dham pilgrimage sites, the ancient kingdom of Lord Krishna.",
+        "darshan_timings": "6:00 AM - 1:00 PM, 5:00 PM - 9:30 PM",
+        "prasadam": "Panchamrit, Flowers",
+        "festivals": "Janmashtami, Holi, Annakut"
+      },
+      {
+        "name": "ISKCON Temple Vrindavan",
+        "temple_name": "ISKCON Temple Vrindavan",
+        "lat": 27.5800,
+        "lng": 77.6700,
+        "location": "Bhaktivedanta Swami Marg, Vrindavan, Uttar Pradesh 281121",
+        "main_deity": "Lord Krishna and Radha",
+        "state": "Uttar Pradesh",
+        "about": "Beautiful modern temple dedicated to Radha Krishna in the holy city of Vrindavan.",
+        "darshan_timings": "4:30 AM - 1:00 PM, 4:00 PM - 8:30 PM",
+        "prasadam": "Prasadam Bhog",
+        "festivals": "Janmashtami, Radhashtami, Holi"
+      },
+      {
+        "name": "Udupi Sri Krishna Temple",
+        "temple_name": "Udupi Sri Krishna Temple",
+        "lat": 13.3409,
+        "lng": 74.7517,
+        "location": "Car Street, Udupi, Karnataka 576101",
+        "main_deity": "Lord Krishna",
+        "state": "Karnataka",
+        "about": "Famous temple established by Sri Madhvacharya, known for the Kanakana Kindi window.",
+        "darshan_timings": "5:30 AM - 8:30 PM",
+        "prasadam": "Udupi Prasadam",
+        "festivals": "Paryaya, Janmashtami, Utsav"
+      }
+    ]
+  },
+  {
+    "name": "Surya",
+    "info": "Surya is the solar deity and one of the Adityas in Hindu tradition.",
+    "story": "Surya is the chief solar deity in Hinduism, worshipped as the source of light and life.",
+    "visiting_guide": "Sunday is auspicious for Surya worship. Offer water to the rising sun.",
+    "architecture": "Surya temples often face east to receive the first rays of the sun.",
+    "mention_in_scripture": "Rigveda, Surya Upanishad",
+    "temples": [
+      {
+        "name": "Konark Sun Temple",
+        "temple_name": "Konark Sun Temple",
+        "lat": 19.8876,
+        "lng": 86.0945,
+        "location": "Konark, Puri, Odisha 752111",
+        "main_deity": "Lord Surya (Sun God)",
+        "state": "Odisha",
+        "about": "UNESCO World Heritage Site, a 13th-century Sun temple built in the shape of a chariot.",
+        "darshan_timings": "6:00 AM - 8:00 PM",
+        "prasadam": "Flowers, Fruits",
+        "festivals": "Chandrabhaga Mela, Magha Saptami"
+      },
+      {
+        "name": "Modhera Sun Temple",
+        "temple_name": "Modhera Sun Temple",
+        "lat": 23.5833,
+        "lng": 72.1333,
+        "location": "Modhera, Mehsana, Gujarat 384212",
+        "main_deity": "Lord Surya (Sun God)",
+        "state": "Gujarat",
+        "about": "11th-century temple built by the Solanki dynasty, known for its intricate carvings.",
+        "darshan_timings": "7:00 AM - 6:00 PM",
+        "prasadam": "Flowers",
+        "festivals": "Uttarayan, Modhera Dance Festival"
+      }
+    ]
+  },
+  {
+    "name": "Hanuman",
+    "info": "Lord Hanuman is the devoted disciple of Lord Rama and the son of Vayu.",
+    "story": "Hanuman is celebrated for his devotion to Rama and his extraordinary strength.",
+    "visiting_guide": "Tuesday and Saturday are auspicious for Hanuman worship.",
+    "architecture": "Hanuman temples often feature the deity in a standing or flying posture.",
+    "mention_in_scripture": "Ramayana, Hanuman Chalisa",
+    "temples": [
+      {
+        "name": "Sankat Mochan Hanuman Temple",
+        "temple_name": "Sankat Mochan Hanuman Temple",
+        "lat": 25.2833,
+        "lng": 82.9833,
+        "location": "Sankat Mochan, Varanasi, Uttar Pradesh 221005",
+        "main_deity": "Lord Hanuman",
+        "state": "Uttar Pradesh",
+        "about": "One of the most important Hanuman temples in Varanasi, established by Tulsidas.",
+        "darshan_timings": "5:00 AM - 10:00 PM",
+        "prasadam": "Laddu, Sindoor",
+        "festivals": "Hanuman Jayanti, Ram Navami"
+      },
+      {
+        "name": "Salasar Balaji Temple",
+        "temple_name": "Salasar Balaji Temple",
+        "lat": 27.7833,
+        "lng": 74.9167,
+        "location": "Salasar, Churu, Rajasthan 331506",
+        "main_deity": "Lord Balaji (Hanuman)",
+        "state": "Rajasthan",
+        "about": "Famous Hanuman temple in Rajasthan, visited by millions of devotees.",
+        "darshan_timings": "5:00 AM - 10:00 PM",
+        "prasadam": "Laddu, Churma",
+        "festivals": "Hanuman Jayanti, Chaitra Purnima"
+      }
+    ]
+  }
+]

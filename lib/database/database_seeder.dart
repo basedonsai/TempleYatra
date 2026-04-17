@@ -5,12 +5,14 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'app_database.dart';
 import '../data/temples_data.dart';
 import '../data/festival_data.dart';
 import '../data/audio_pack_data.dart';
+import '../data/temple_data_importer.dart';
 import '../models/festival_event.dart';
 import '../models/audio_pack.dart';
 
@@ -19,9 +21,10 @@ class DatabaseSeeder {
 
   static const int _seedVersion = 1;
   static const int _seedVersion2 = 2;
+  static const int _seedVersion3 = 3;
 
   /// Entry point. Call once from [main] after [AppDatabase] is ready.
-  static Future<void> seedIfNeeded() async {
+  static Future<void> seedIfNeeded({AssetBundle? bundle}) async {
     final appDb = AppDatabase.instance;
 
     if (!await appDb.isSeeded(_seedVersion)) {
@@ -45,6 +48,21 @@ class DatabaseSeeder {
       });
       await appDb.markSeeded(_seedVersion2);
       debugPrint('[DatabaseSeeder] Seed v$_seedVersion2 complete.');
+    }
+
+    if (!await appDb.isSeeded(_seedVersion3)) {
+      debugPrint('[DatabaseSeeder] Seeding v$_seedVersion3…');
+      final db = await appDb.db;
+      final importedTemples = await TempleDataImporter.load(
+        existingTemples: allTemples,
+        bundle: bundle,
+      );
+      await db.transaction((txn) async {
+        await _seedV3Temples(txn, importedTemples);
+        await _seedV3Festivals(txn, importedTemples);
+      });
+      await appDb.markSeeded(_seedVersion3);
+      debugPrint('[DatabaseSeeder] Seed v$_seedVersion3 complete.');
     }
   }
 
@@ -146,6 +164,82 @@ class DatabaseSeeder {
             'file_size_bytes': track.fileSizeBytes,
             'local_path': track.localPath,
             'sort_order': i,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
+  // ── Seed v3 ───────────────────────────────────────────────────────────────
+
+  static Future<void> _seedV3Temples(
+    Transaction txn,
+    List<dynamic> importedTemples,
+  ) async {
+    final batch = txn.batch();
+    for (final t in importedTemples) {
+      batch.insert(
+        'temples',
+        {
+          'id': t.id,
+          'place_id': t.placeId,
+          'name': t.name,
+          'latitude': t.latitude,
+          'longitude': t.longitude,
+          'address': t.address,
+          'distinctive_features': t.distinctiveFeatures,
+          'festivals': t.festivals,
+          'prasadam_info': t.prasadamInfo,
+          'darshan_timings': t.darshanTimings,
+          'opening_hours': t.openingHours,
+          'rating': t.rating,
+          'user_ratings_total': t.userRatingsTotal,
+          'phone_number': t.phoneNumber,
+          'website': t.website,
+          'estimated_visit_minutes': t.estimatedVisitDurationMinutes,
+          'primary_language': t.primaryLanguage,
+          'region': t.region,
+          'deity_info': t.deityInfo,
+          'sthala_puranam': t.sthalaPuranam,
+          'sthala_puranam_en': t.sthalaPuranamEnglish,
+          'sthala_puranam_hi': t.sthalaPuranamHindi,
+          'sthala_puranam_ta': t.sthalaPuranamTamil,
+          'sthala_puranam_te': t.sthalaPuranamTelugu,
+          'rituals': t.rituals,
+          'rituals_en': t.ritualsEnglish,
+          'mantras': t.mantras,
+          'significance': t.significance,
+          'best_time_to_visit': t.bestTimeToVisit,
+          'dress_code': t.dressCode,
+          'temple_history': t.templeHistory,
+          'architecture_info': t.architectureInfo,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  static Future<void> _seedV3Festivals(
+    Transaction txn,
+    List<dynamic> importedTemples,
+  ) async {
+    final batch = txn.batch();
+    for (final t in importedTemples) {
+      final festivalsText = t.festivals as String;
+      if (festivalsText.isEmpty) continue;
+      for (final festivalName in festivalsText.split(',')) {
+        final name = festivalName.trim();
+        if (name.isEmpty) continue;
+        batch.insert(
+          'festivals',
+          {
+            'temple_id': t.id,
+            'name': name,
+            'date': '2026-01-01',
+            'crowd_hint': 'high',
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );

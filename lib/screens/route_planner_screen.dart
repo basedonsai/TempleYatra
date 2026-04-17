@@ -1242,6 +1242,8 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
         const SizedBox(height: 4),
         Text(
           value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 15,
